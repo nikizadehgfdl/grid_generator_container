@@ -57,7 +57,7 @@ RUN conda config --add channels conda-forge
 #     netcdf4=$NETCDF4_BLD \
 #     pytest=$PYTEST_BLD
 
-RUN conda create -y -n env python=3.11 numpy matplotlib cartopy netcdf4 pytest scipy xarray dask numba
+RUN conda create -y -n env python=3.11 numpy matplotlib cartopy netcdf4 pytest scipy xarray dask numba tqdm xesmf xgcm
 
 # Install git
 RUN apt-get update && apt-get install -y git=$GIT_VER
@@ -175,7 +175,7 @@ CMD ["/bin/bash"]
 #
 # Convert the docker container to a SIF image file (two approaches):
 #     (1)  singularity build grid_generator.sif docker-archive://path/to/grid_generator.tar
-#     (2)  singularity build grid_generator.sif docker://krasting/grid_generator.tar:latest
+#     (2)  singularity build grid_generator.sif docker://krasting/grid_generator:latest
 #
 # To start the container:
 #     cd /path/to/some/workdir
