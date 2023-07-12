@@ -145,3 +145,38 @@ CMD ["/bin/bash"]
 
 # USAGE INSTRUCTIONS
 #---------------------------------------------
+#
+# CASE 1: Docker
+# ++++++++++++++
+#
+# To build the container:
+#     docker build -t grid_generator:latest .
+#
+# To start the container:
+#     mkdir results
+#     docker run -it -v `pwd`results:/results grid_generator:latest
+#
+# Working inside the container:
+#     cd /results
+#     ocean_grid_generator.py -f ocean_hgrid_res0.5.nc -r 2 --write_subgrid_files --no_changing_meta
+#     ocean_grid_generator.py -f ocean_hgrid_res0.25.nc -r 4 --r_dp 0.2 --south_cutoff_row 83 --write_subgrid_files --no_changing_meta
+#     exit
+#
+# Exporting a copy of the container: 
+#     docker save -o grid_generator.tar grid_generator:latest
+#
+# Uploading container to DockerHub:
+#     docker tag grid_generator:latest username/grid_generator:vYYYYMMDD
+#     docker tag grid_generator:latest username/grid_generator:latest
+#
+#
+# CASE 2: Singularity
+# +++++++++++++++++++
+#
+# Convert the docker container to a SIF image file (two approaches):
+#     (1)  singularity build grid_generator.sif docker-archive://path/to/grid_generator.tar
+#     (2)  singularity build grid_generator.sif docker://krasting/grid_generator.tar:latest
+#
+# To start the container:
+#     cd /path/to/some/workdir
+#     singularity exec grid_generator.sif bash -c "source /opt/conda/etc/profile.d/conda.sh && conda activate env && bash"
