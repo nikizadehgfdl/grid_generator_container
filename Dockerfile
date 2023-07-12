@@ -27,7 +27,7 @@ RUN apt-get update && apt-get install -y \
 
 # Stage 1: Build the Python environment with tools
 #----------------------------------------------
-FROM base as builder
+FROM base as python
 
 # Specific Conda Builds
 ARG NUMPY_BLD=1.25.1\=py311h64a7726_0
@@ -57,7 +57,7 @@ RUN conda config --add channels conda-forge
 #     netcdf4=$NETCDF4_BLD \
 #     pytest=$PYTEST_BLD
 
-RUN conda create -y -n env python=3.11 numpy matplotlib cartopy netcdf4 pytest scipy xarray dask numba tqdm xesmf xgcm
+RUN conda create -y -n env python=3.11 numpy matplotlib cartopy netcdf4 pytest scipy xarray dask numba tqdm xesmf xgcm seawater
 
 # Install git
 RUN apt-get update && apt-get install -y git=$GIT_VER
@@ -101,40 +101,46 @@ RUN cd FRE-NCtools && autoreconf -i && ./configure --prefix=/opt/fre-nctools && 
 RUN apt list --installed > /opt/fre-nctools/version_record.txt
 
 
-# Stage 3: Alistair Adcroft's toolset
+# Stage 3: Various Toolsets
 #---------------------------------------------
-FROM base as ajatools
+FROM base as tools
 
-ARG AJATOOLS=/opt/aja
+ARG TOOLDIR=/opt/tools
 
-RUN mkdir -p $AJATOOLS
+RUN mkdir -p $TOOLDIR
 
 # Convert Davies geothermal
-RUN cd $AJATOOLS \
+RUN cd $TOOLDIR \
     && git clone https://github.com/adcroft/convert_Davies_2013 \
     && cd convert_Davies_2013 \
     && git checkout 8631ac5
 
 # Preprocess Geothermal
-RUN cd $AJATOOLS \
+RUN cd $TOOLDIR \
     && git clone https://github.com/adcroft/OM4_05_preprocessing_geothermal \
     && cd OM4_05_preprocessing_geothermal \
     && git checkout 5846be6
 
 # Interp and fill routine
-RUN cd $AJATOOLS \
+RUN cd $TOOLDIR \
     && git clone https://github.com/adcroft/interp_and_fill \
     && cd interp_and_fill \
     && git checkout 05686cd
+
+# River runoff
+RUN cd $TOOLDIR \
+    && git clone https://github.com/raphaeldussin/OM4_025_runoff_JRA \
+    && cd OM4_025_runoff_JRA \
+    && git checkout e7f26be
 
 
 # Stage 4: Assemble the container
 #---------------------------------------------
 FROM base
 
-COPY --from=builder /opt/conda/envs/env /opt/conda/envs/env
+COPY --from=python /opt/conda/envs/env /opt/conda/envs/env
 COPY --from=fretools /opt/fre-nctools /opt/fre-nctools
-COPY --from=ajatools /opt/aja /opt/aja
+COPY --from=tools /opt/tools /opt/tools
 
 # Activate conda environment in .bashrc
 RUN echo "source activate env" > ~/.bashrc
