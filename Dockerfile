@@ -139,6 +139,7 @@ RUN cd $TOOLDIR \
 FROM base
 
 COPY --from=python /opt/conda/envs/env /opt/conda/envs/env
+COPY --from=python /etc/pythonstart /etc/pythonstart
 COPY --from=fretools /opt/fre-nctools /opt/fre-nctools
 COPY --from=tools /opt/tools /opt/tools
 
