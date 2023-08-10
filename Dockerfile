@@ -14,6 +14,7 @@ ARG LIBNETCDFF_VER=4.5.3+ds-2
 ARG MAKE_VER=4.3-4.1
 ARG NCO_VER=4.9.7-1
 ARG WGET_VER=1.21-1+deb11u1
+ARG LIBC_VER=2.31-13+deb11u5
 
 # Install Fortran Libraries & make
 RUN apt-get update && apt-get install -y \
@@ -22,12 +23,31 @@ RUN apt-get update && apt-get install -y \
     libnetcdff-dev=$LIBNETCDFF_VER \
     make=$MAKE_VER \
     nco=$NCO_VER \
-    wget=$WGET_VER
+    wget=$WGET_VER \
+    libc-bin=$LIBC_VER \
+    emacs \
+    vim
+
+
+# Stage 00: Compiler Tools
+#----------------------------------------------
+FROM base as compiler
+
+# OS-Specific Versions
+ARG AUTOCONF_VER=2.69-14
+ARG GCC_VER=4:10.2.1-1
+ARG GFORTRAN_VER=4:10.2.1-1
+
+# Install git, C-compiler, Fortran-compiler and autoreconf
+RUN apt-get update && apt-get install -y \
+    autoconf=$AUTOCONF_VER \
+    gcc=$GCC_VER \
+    gfortran=$GFORTRAN_VER
 
 
 # Stage 1: Build the Python environment with tools
 #----------------------------------------------
-FROM base as python
+FROM compiler as python
 
 # Specific Conda Builds
 ARG NUMPY_BLD=1.25.1\=py311h64a7726_0
@@ -78,21 +98,10 @@ RUN pip install git+https://github.com/raphaeldussin/sloppy.git@f016c3e
 
 # Stage 2: Build the FRE NCtools
 #----------------------------------------------
-FROM base as fretools
-
-# OS-Specific Versions
-ARG AUTOCONF_VER=2.69-14
-ARG GCC_VER=4:10.2.1-1
-ARG GFORTRAN_VER=4:10.2.1-1
+FROM compiler as fretools
 
 # FRE-NCtools version
 ARG FRENC_COMMIT=dcbfc10
-
-# Install git, C-compiler, Fortran-compiler and autoreconf
-RUN apt-get update && apt-get install -y \
-    autoconf=$AUTOCONF_VER \
-    gcc=$GCC_VER \
-    gfortran=$GFORTRAN_VER
 
 # Clone and install FRE-NCtools
 RUN git clone https://github.com/NOAA-GFDL/FRE-NCtools.git
@@ -129,17 +138,25 @@ RUN cd $TOOLDIR \
 
 # River runoff
 RUN cd $TOOLDIR \
-    && git clone https://github.com/raphaeldussin/OM4_025_runoff_JRA \
+    && git clone --recursive https://github.com/raphaeldussin/OM4_025_runoff_JRA \
     && cd OM4_025_runoff_JRA \
     && git checkout e7f26be
 
 
-# Stage 4: Assemble the container
+# Stage 4: Build MIDAS
+#---------------------------------------------
+# from python as python-midas
+#
+# RUN apt-get update && apt-get install -y tcsh
+#
+# RUN git clone https://github.com/jkrasting/MIDAS && cd MIDAS && git checkout 875ef79 && make -f Makefile_gfortran
+
+
+# Stage 5: Assemble the container
 #---------------------------------------------
 FROM base
 
 COPY --from=python /opt/conda/envs/env /opt/conda/envs/env
-COPY --from=python /etc/pythonstart /etc/pythonstart
 COPY --from=fretools /opt/fre-nctools /opt/fre-nctools
 COPY --from=tools /opt/tools /opt/tools
 
