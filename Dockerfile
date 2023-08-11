@@ -59,7 +59,7 @@ ARG PYTEST_BLD=7.4.0\=pyhd8ed1ab_0
 # Specific Repository Commits
 ARG NUMPYPI_COMMIT=493d489
 ARG GRIDGEN_COMMIT=a1664f1
-ARG TOPOGEN_COMMIT=42771ca
+ARG TOPOGEN_COMMIT=1b089bc
 
 # Set the working directory in the container
 WORKDIR /app
