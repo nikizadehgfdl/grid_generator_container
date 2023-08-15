@@ -1,5 +1,6 @@
 # Dockerfile for container used to generate OM5 grids and datasets
-# J. Krasting NOAA/GFDL - July 2023
+# J. Krasting NOAA/GFDL
+# Last updated: 15 August 2023
 # (See usage instructions below)
 
 
@@ -25,6 +26,8 @@ RUN apt-get update && apt-get install -y \
     nco=$NCO_VER \
     wget=$WGET_VER \
     libc-bin=$LIBC_VER \
+    patch \
+    tcsh \
     emacs \
     vim
 
@@ -50,11 +53,18 @@ RUN apt-get update && apt-get install -y \
 FROM compiler as python
 
 # Specific Conda Builds
-ARG NUMPY_BLD=1.25.1\=py311h64a7726_0
+ARG NUMPY_BLD=1.24.4\=py311h64a7726_0
 ARG MATPLOTLIB_BLD=3.7.2\=py311h38be061_0
-ARG CARTOPY_BLD=0.21.1\=py311hd88b842_1
-ARG NETCDF4_BLD=1.6.4\=nompi_py311h9a7c333_101
+ARG CARTOPY_BLD=0.22.0\=py311h320fe9a_0
+ARG NETCDF4_BLD=1.6.4\=nompi_py311h4d7c953_100
 ARG PYTEST_BLD=7.4.0\=pyhd8ed1ab_0
+ARG XARRAY_BLD=2023.7.0\=pyhd8ed1ab_0
+ARG DASK_BLD=2023.8.0\=pyhd8ed1ab_0
+ARG NUMBA_BLD=0.57.1\=py311h96b013e_0
+ARG TQDM_BLD=4.66.0\=pyhd8ed1ab_0
+ARG XESMF_BLD=0.7.1\=pyhd8ed1ab_0
+ARG XGCM_BLD=0.8.1\=pyhd8ed1ab_0
+ARG SEAWATER_BLD=3.3.4\=py_1
 
 # Specific Repository Commits
 ARG NUMPYPI_COMMIT=493d489
@@ -67,17 +77,29 @@ WORKDIR /app
 # Update conda and add conda-forge as a channel
 RUN conda update -n base -c defaults conda
 RUN conda config --add channels conda-forge
+RUN conda install -y -c conda-forge mamba
 
-# # Create a new conda environment with Python 3.11 and the necessary packages
+# Create a new conda environment with Python 3.11 and the necessary packages
+RUN mamba create -y -n env python=3.11 numpy matplotlib cartopy netcdf4 pytest scipy xarray dask numba tqdm xesmf xgcm seawater
+
 # RUN conda create -y -n env \
 #     python=3.11 \
 #     numpy=$NUMPY_BLD \
 #     matplotlib=$MATPLOTLIB_BLD \
 #     cartopy=$CARTOPY_BLD \
 #     netcdf4=$NETCDF4_BLD \
-#     pytest=$PYTEST_BLD
-
-RUN conda create -y -n env python=3.11 numpy matplotlib cartopy netcdf4 pytest scipy xarray dask numba tqdm xesmf xgcm seawater
+#     pytest=$PYTEST_BLD \
+#     scipy=$SCIPY_BLD \
+#     xarray=$XARRAY_BLD \
+#     dask=$DASK_BLD \
+#     numba=$NUMBA_BLD \
+#     tqdm=$TQDM_BLD \
+#     xesmf=$XESMF_BLD \
+#     xgcm=$XGCM_BLD \
+#     seawater=$SEAWATER_BLD
+   
+# Create a Python 2.7 environment for the legacy tools
+RUN mamba create -y -n py27 python=2.7 numpy basemap blas cftime geos glib gstreamer hdf4 hdf5 intel-openmp matplotlib netcdf4 proj4 pyproj scipy gsw
 
 # Install git
 RUN apt-get update && apt-get install -y git=$GIT_VER
@@ -143,13 +165,21 @@ RUN cd $TOOLDIR \
     && git checkout e7f26be
 
 
-# Stage 4: Build MIDAS
+# Stage 4: Build OM4 Preprocessing Tools
 #---------------------------------------------
-# from python as python-midas
-#
-# RUN apt-get update && apt-get install -y tcsh
-#
-# RUN git clone https://github.com/jkrasting/MIDAS && cd MIDAS && git checkout 875ef79 && make -f Makefile_gfortran
+from compiler as om4preprocess
+
+COPY --from=python /opt/conda/envs/py27 /opt/conda/envs/py27
+
+SHELL ["conda", "run", "-n", "py27", "/bin/bash", "-c"]
+
+RUN cd /opt \
+    && git clone https://github.com/jkrasting/MOM6-examples \
+    && cd MOM6-examples \
+    && git checkout 4eec19be2 \
+    && cd ice_ocean_SIS2/OM4_025/preprocessing \
+    && make MIDAS \
+    && make local
 
 
 # Stage 5: Assemble the container
@@ -157,11 +187,15 @@ RUN cd $TOOLDIR \
 FROM base
 
 COPY --from=python /opt/conda/envs/env /opt/conda/envs/env
+COPY --from=python /opt/conda/envs/py27 /opt/conda/envs/py27
 COPY --from=fretools /opt/fre-nctools /opt/fre-nctools
 COPY --from=tools /opt/tools /opt/tools
+COPY --from=om4preprocess /opt/MOM6-examples /opt/MOM6-examples
 
 # Activate conda environment in .bashrc
 RUN echo "source activate env" > ~/.bashrc
+RUN echo "export TERM=xterm" > ~/.bashrc
+RUN echo "echo 'OM5 Preprocessing Container'" > ~/.bashrc
 
 # When the container is run, start a bash shell
 CMD ["/bin/bash"]
@@ -185,6 +219,9 @@ CMD ["/bin/bash"]
 #     ocean_grid_generator.py -f ocean_hgrid_res0.5.nc -r 2 --write_subgrid_files --no_changing_meta
 #     ocean_grid_generator.py -f ocean_hgrid_res0.25.nc -r 4 --r_dp 0.2 --south_cutoff_row 83 --write_subgrid_files --no_changing_meta
 #     exit
+#
+# Use conda environment inside container:
+#     conda run -n py27 --no-capture-output /bin/bash
 #
 # Exporting a copy of the container: 
 #     docker save -o grid_generator.tar grid_generator:latest
