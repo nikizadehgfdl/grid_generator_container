@@ -34,6 +34,8 @@ RUN apt-get update && apt-get install -y \
     patch \
     tcsh \
     emacs \
+    sudo \
+    time \
     vim
 
 # Create the non-privilged user
@@ -41,6 +43,8 @@ RUN groupadd $UNPRIV_USER && useradd -ms /bin/bash -g $UNPRIV_USER $UNPRIV_USER
 RUN mkdir -p /pad/$UNPRIV_USER
 RUN chown $UNPRIV_USER:$UNPRIV_USER /pad/$UNPRIV_USER
 RUN usermod -d /pad/$UNPRIV_USER $UNPRIV_USER
+#Enable user to make sudo (to install packages)
+RUN adduser $UNPRIV_USER sudo
 
 
 # Stage 0: Compiler Tools
@@ -151,8 +155,8 @@ USER $UNPRIV_USER
 
 # Specific Repository Commits
 ARG NUMPYPI_COMMIT=493d489
-ARG GRIDGEN_COMMIT=a1664f1
-ARG TOPOGEN_COMMIT=1b089bc
+ARG GRIDGEN_COMMIT=4add8f6
+ARG TOPOGEN_COMMIT=fc722bb
 ARG SLOPPY_COMMIT=f016c3e
 ARG GEOCONV_COMMIT=8631ac5
 ARG GEOPROC_COMMIT=5846be6
