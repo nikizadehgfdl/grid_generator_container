@@ -280,8 +280,8 @@ RUN echo "echo 'OM5 Preprocessing Container'" >> /pad/$UNPRIV_USER/.bashrc
 
 # Include Makefile
 COPY Makefile.om5p25 /opt/tools/Makefile.om5p25
-RUN chown -R $UNPRIV_USER /opt/tools/Makefile.om5p25
-RUN chgrp -R $UNPRIV_USER /opt/tools/Makefile.om5p25
+RUN chown -R $UNPRIV_USER /opt/tools/Makefile_OM5_rp
+RUN chgrp -R $UNPRIV_USER /opt/tools/Makefile_OM5_rp
 
 USER $UNPRIV_USER
 
