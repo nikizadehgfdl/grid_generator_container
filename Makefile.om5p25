@@ -1,16 +1,20 @@
-# Makefile to create grid and grid dependent files for c256om4p25
-# To use:
-#
+# Preprocessing Makefile for OM5 (Rotated Pole)
+
 NP=16
 TOOLS =       tools
 FRE_NCTOOLS = /opt/fre-nctools/bin
 AJA_TOOLS = /opt/aja
+GOLD_DIR = /archive/gold/datasets
 OCEAN_TOPOG_TOOL =  create_topog_refinedSampling.py
+OCEAN_TOPOG_SRC  = --source_file $(GOLD_DIR)/topography/GEBCO_2020/GEBCO_2020.nc --source_lon lon --source_lat lat --source_elv elevation 
 #OCEAN_TOPOG_SRC  = --source_file GEBCO_2020.nc --source_lon lon --source_lat lat --source_elv elevation 
-OCEAN_TOPOG_SRC  = --source_file GEBCO_08_v1.nc --source_lon longitude --source_lat latitude --source_elv depth
+#OCEAN_TOPOG_SRC  = --source_file GEBCO_08_v1.nc --source_lon longitude --source_lat latitude --source_elv depth
 OCEAN_GRID_TOOL = ocean_grid_generator.py
 OCEAN_INVERSE_RESOLUTION=4
 OCEAN_GRID_DIR = 
+
+PYTHON2 = /pad/griduser/.conda/envs/py27/bin/python
+MOM6_EXAMPLES_PREPROC = /opt/tools/MOM6-examples/ice_ocean_SIS2/OM4_025/preprocessing
 
 showenv:
 	env
@@ -26,9 +30,11 @@ showenv:
 .PHONY: ocean_grid
 ocean_grid: ocean_hgrid.nc
 
-ocean_hgrid.nc:
-	$(OCEAN_GRID_TOOL) --write_subgrid_files -f $(@F) -r $(OCEAN_INVERSE_RESOLUTION) --lon_dp 90.0 --lat_dp -90.0 --south_cap_lat -70.0  --exfracdp 0.0  --south_cutoff_row 21 
+#ocean_hgrid.nc:
+#	$(OCEAN_GRID_TOOL) --write_subgrid_files -f $(@F) -r $(OCEAN_INVERSE_RESOLUTION) --lon_dp 90.0 --lat_dp -90.0 --south_cap_lat -70.0  --exfracdp 0.0  --south_cutoff_row 21 
 
+ocean_hgrid.nc:
+	$(OCEAN_GRID_TOOL) --write_subgrid_files -f $(@F) -r $(OCEAN_INVERSE_RESOLUTION) --r_dp 0.2 --south_cutoff_row 83
 
 # Topography Generaion
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -52,18 +58,26 @@ ocean_topog_SC.nc:
 ocean_topog_merged.nc: ocean_topog_MERC.nc ocean_topog_SO.nc ocean_topog_BP.nc ocean_topog_SC.nc
 	merge_topog_tiles.py --tilefiles ocean_topog_SC.nc,ocean_topog_SO.nc,ocean_topog_MERC.nc,ocean_topog_BP.nc --outputfilename $(@F)
 
-ocean_topog_editted.nc: ocean_topog_merged.nc
+ocean_topog_edited.nc: ocean_topog_merged.nc
+	# Shift OM4 topog edits by 40 points; all edits were done on a larger grid at the
+	# last step of the OM4 preprocessing chain was to drop the first 40 rows
+	cp $(MOM6_EXAMPLES_PREPROC)/OM4_topography_edits.nc adjusted_om4_edits.nc
+	python adjust_topo_edit_jindex.py adjusted_om4_edits.nc -40
+	# Apply topog edits
 	cp ocean_topog_merged.nc tmp.nc 
-#       pytools/thin-wall-topography/python/apply_topog_edits.py topo_edits_020718.nc tmp.nc --variable 'height'
-	cp tmp.nc $(@F)
+	ncap2 -hs "depth=depth*(-1)" tmp.nc tmp2.nc
+	$(PYTHON2) $(MOM6_EXAMPLES_PREPROC)/apply_edits.py adjusted_om4_edits.nc tmp2.nc
+	ncap2 -hs "depth=depth*(-1)" tmp2.nc $(@F)
 
-ocean_topog_ice9ed.nc: ocean_topog_editted.nc
-        #pytools/thin-wall-topography/python/ice9.py topog_editted.nc --variable 'height' --iseed 10 --jseed 200 --output $(@F)
-	ice9.py ocean_topog_editted.nc --variable 'height' --iseed 10 --jseed 200 --output $(@F)
+ocean_topog_ice9ed.nc: ocean_topog_edited.nc
+	#ice9.py ocean_topog_edited.nc --variable 'height' --iseed 10 --jseed 200 --output $(@F)
+	ice9.py ocean_topog_edited.nc --variable 'depth' --iseed 10 --jseed 200 --output $(@F)
+	#ice9.py ocean_topog_edited.nc --output $(@F)
+	#$(PYTHON2) $(MOM6_EXAMPLES_PREPROC)/ice9.py ocean_topog_edited.nc --output $(@F)
 
-ocean_topog_ice9ed_missingBlackSea.nc: ocean_topog_editted.nc
-        #pytools/thin-wall-topography/python/ice9.py topog_editted.nc --variable 'height' --iseed 10 --jseed 200 --output $(@F)
-	ice9.py ocean_topog_editted.nc --variable 'height' --iseed 10 --jseed 200 --output $(@F)
+#ocean_topog_ice9ed_missingBlackSea.nc: ocean_topog_editted.nc
+#        #pytools/thin-wall-topography/python/ice9.py topog_editted.nc --variable 'height' --iseed 10 --jseed 200 --output $(@F)
+#	ice9.py ocean_topog_editted.nc --variable 'height' --iseed 10 --jseed 200 --output $(@F)
 
 ocean_topog.nc: ocean_topog_ice9ed.nc
 	cp ocean_topog_ice9ed.nc topog.nc
