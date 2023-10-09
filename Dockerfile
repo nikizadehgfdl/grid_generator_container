@@ -257,7 +257,6 @@ RUN cd $TOOLDIR \
     && make local
 
 
-
 # Stage 6: Assemble the container
 #---------------------------------------------
 FROM python-installed
@@ -273,58 +272,28 @@ COPY --from=om4preprocess /opt/tools/MOM6-examples /opt/tools/MOM6-examples
 RUN chown -R $UNPRIV_USER /opt/tools/MOM6-examples
 RUN chgrp -R $UNPRIV_USER /opt/tools/MOM6-examples
 
+COPY auxillary /opt/tools/auxillary
+RUN chown -R $UNPRIV_USER /opt/tools/auxillary
+RUN chgrp -R $UNPRIV_USER /opt/tools/auxillary
+
 # Activate conda environment in .bashrc
 RUN echo "export TERM=xterm" > /pad/$UNPRIV_USER/.bashrc
 RUN echo "source activate py311" >> /pad/$UNPRIV_USER/.bashrc
 RUN echo "echo 'OM5 Preprocessing Container'" >> /pad/$UNPRIV_USER/.bashrc
 
 # Include Makefile
-COPY Makefile.om5p25 /opt/tools/Makefile.om5p25
-RUN chown -R $UNPRIV_USER /opt/tools/Makefile_OM5_rp
-RUN chgrp -R $UNPRIV_USER /opt/tools/Makefile_OM5_rp
+COPY Makefile_OM5_rp /opt/tools/Makefile_OM5_rp
+RUN chown -R $UNPRIV_USER /opt/tools/Makefile_OM5_rp && chgrp -R $UNPRIV_USER /opt/tools/Makefile_OM5_rp
+
+# Make mount point for GOLD datasets (GFDL-specific)
+RUN mkdir -p /archive/gold
+
+# Make results directory
+RUN mkdir /results
+COPY Makefile_OM5_rp /results/Makefile_OM5_rp
+RUN chown -R $UNPRIV_USER /results
+RUN chgrp -R $UNPRIV_USER /results
 
 USER $UNPRIV_USER
 
 CMD ["/bin/bash"]
-
-
-# USAGE INSTRUCTIONS
-#---------------------------------------------
-#
-# CASE 1: Docker
-# ++++++++++++++
-#
-# To build the container:
-#     docker build -t grid_generator:latest .
-#
-# To start the container:
-#     mkdir results
-#     docker run -it -v `pwd`results:/results grid_generator:latest
-#
-# Working inside the container:
-#     cd /results
-#     ocean_grid_generator.py -f ocean_hgrid_res0.5.nc -r 2 --write_subgrid_files --no_changing_meta
-#     ocean_grid_generator.py -f ocean_hgrid_res0.25.nc -r 4 --r_dp 0.2 --south_cutoff_row 83 --write_subgrid_files --no_changing_meta
-#     exit
-#
-# Use conda environment inside container:
-#     conda run -n py27 --no-capture-output /bin/bash
-#
-# Exporting a copy of the container: 
-#     docker save -o grid_generator.tar grid_generator:latest
-#
-# Uploading container to DockerHub:
-#     docker tag grid_generator:latest username/grid_generator:vYYYYMMDD
-#     docker tag grid_generator:latest username/grid_generator:latest
-#
-#
-# CASE 2: Singularity
-# +++++++++++++++++++
-#
-# Convert the docker container to a SIF image file (two approaches):
-#     (1)  singularity build grid_generator.sif docker-archive://path/to/grid_generator.tar
-#     (2)  singularity build grid_generator.sif docker://krasting/grid_generator:latest
-#
-# To start the container:
-#     cd /path/to/some/workdir
-#     singularity exec grid_generator.sif bash -c "source /opt/conda/etc/profile.d/conda.sh && conda activate env && bash"

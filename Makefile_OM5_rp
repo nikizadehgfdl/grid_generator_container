@@ -1,101 +1,189 @@
-# Preprocessing Makefile for OM5 (Rotated Pole)
+# OM5 Horizontal Grid, Topography, and Preprocessing Datasets
+# GFDL Ocean Division - October 2023
+#
+# Makefile for OM5 (Rotated Pole)
+# -------------------------------
+#
+# The initial horizontal grid for OM5 is nearly identical to the grid
+# used in OM4 (Adcroft et al. 2019). The i,j array sizes are the same
+# between the models, and the geographical locations of the cell centers
+# are highly similar. For most locations, the differences are within
+# machine precision, with more significant differences over the Southern
+# Cap where the grid generation relies on trigonometric functions
+# (N. Zadeh, pers. comm.) whose results differ across machines/platforms.
+# Compared to OM4, bugfixes introduce some differences in the other grid
+# metrics (dx, dy, and cell area) that are considered superior to OM4.
 
-NP=16
-TOOLS =       tools
-FRE_NCTOOLS = /opt/fre-nctools/bin
-AJA_TOOLS = /opt/aja
-GOLD_DIR = /archive/gold/datasets
-OCEAN_TOPOG_TOOL =  create_topog_refinedSampling.py
-OCEAN_TOPOG_SRC  = --source_file $(GOLD_DIR)/topography/GEBCO_2020/GEBCO_2020.nc --source_lon lon --source_lat lat --source_elv elevation 
-#OCEAN_TOPOG_SRC  = --source_file GEBCO_2020.nc --source_lon lon --source_lat lat --source_elv elevation 
-#OCEAN_TOPOG_SRC  = --source_file GEBCO_08_v1.nc --source_lon longitude --source_lat latitude --source_elv depth
-OCEAN_GRID_TOOL = ocean_grid_generator.py
-OCEAN_INVERSE_RESOLUTION=4
-OCEAN_GRID_DIR = 
+# This Makefile is broken into the following sections
+#
+#     Part 1: Horizontal Grid
+#
+#     Part 2: Topography Generation
+#        2a: Interpolared Topography with Subgrid Tiles
+#        2b: Topgraphy Edits
+#        2c: Flood-filling & Connectivity (ICE-9)
+#
+#     Part 3: FMS Grid Spec, Mosaic Files, and Mask Tables
+#
+# Example Usage:
+#    make -f Makefile_OM5_rp grid_spec.nc
+#    make -f Makefile_OM5_rp mask_tables
 
+
+# (Unused parameters)
+# NP=16
+TOOLDIR = /opt/tools
+# TOOLS =       tools
+# FRE_NCTOOLS = /opt/fre-nctools/bin
+# AJA_TOOLS = /opt/aja
+# #OCEAN_TOPOG_SRC  = --source_file GEBCO_2020.nc --source_lon lon --source_lat lat --source_elv elevation 
+# #OCEAN_TOPOG_SRC  = --source_file GEBCO_08_v1.nc --source_lon longitude --source_lat latitude --source_elv depth
+
+
+# COMMON PATHS & SETTINGS
+# -----------------------
+
+# This Makefile relies on two different versions of Python. The updated
+# new tools rely on Python 3 while the legacy OM4 tools rely on Python 2.
 PYTHON2 = /pad/griduser/.conda/envs/py27/bin/python
+PYTHON3 = /pad/griduser/.conda/envs/py311/bin/python
+
+# GFDL O-division has a central repository for common datasets
+GOLD_DIR = /archive/gold/datasets
+
+
+# Part 1: Horizontal Grid
+# ------------------------
+
+# Use N. Zadeh's `ocean_grid_gnerator.py` tool to create the horizontal grid.
+# The resolution is specificed as an "inverse resolution" specified with the
+# `-r` flag. The 0.25-degree (1/4) is specified as `-r 4`. The displaced
+# pole is specified through the `--r_dp` flag. The "south_cutoff_flag" specifies
+# the southern extent of the grid. This value is chosen to reproduce OM4. In
+# this workflow, the southern extent is specified up front compared to OM4
+# where the grid was subset using NCO commands towards the end of the
+# preprocessing workflow.
+ 
+ocean_hgrid.nc:
+	ocean_grid_generator.py \
+            --write_subgrid_files \
+            -f $(@F) \
+            -r 4 \
+            --r_dp 0.2 \
+            --south_cutoff_row 83
+
+
+# Part 2a: Interpolared Topography with Subgrid Tiles
+# ---------------------------------------------------
+
+OCEAN_TOPOG_TOOL = create_topog_refinedSampling.py
+
+# The source topography for OM5 is GEBCO 2020, which incorporates IBCAO and
+# BEDMACHINE updates that were processed separately in OM4. This command
+# below specifies the source location for the GEBCO 202 data and the variable
+# names contained within the file.
+OCEAN_TOPOG_SRC = --source_file $(GOLD_DIR)/topography/GEBCO_2020/GEBCO_2020.nc \
+                  --source_lon lon \
+                  --source_lat lat \
+                  --source_elv elevation 
+
+# Bipolar Cap
+ocean_topog_BP.nc: 
+	$(OCEAN_TOPOG_TOOL) --hgridfilename ./ocean_hgrid.ncBP.nc \
+        --outputfilename $(@F) $(OCEAN_TOPOG_SRC)
+
+# Mercator Region
+ocean_topog_MERC.nc: 
+	$(OCEAN_TOPOG_TOOL) --hgridfilename ./ocean_hgrid.ncMerc.nc \
+        --outputfilename $(@F) $(OCEAN_TOPOG_SRC)
+
+# Southern Ocean Spherical Grid
+ocean_topog_SO.nc: 
+	$(OCEAN_TOPOG_TOOL) --hgridfilename ./ocean_hgrid.ncSO.nc \
+        --outputfilename $(@F) $(OCEAN_TOPOG_SRC)
+
+# Southern Cap
+ocean_topog_SC.nc: 
+	$(OCEAN_TOPOG_TOOL) --hgridfilename ./ocean_hgrid.ncSC.nc \
+        --outputfilename $(@F) $(OCEAN_TOPOG_SRC)
+
+# Merge all tiles together
+ocean_topog_merged.nc: ocean_topog_MERC.nc ocean_topog_SO.nc \
+                       ocean_topog_BP.nc ocean_topog_SC.nc
+	merge_topog_tiles.py \
+        --tilefiles ocean_topog_SC.nc,ocean_topog_SO.nc,ocean_topog_MERC.nc,ocean_topog_BP.nc \
+        --outputfilename $(@F)
+
+
+# Part 2b: Topgraphy Edits
+# ------------------------
+
+# Topography edits are applied both in the preprocessing workflow and
+# also at model runtime. The preprocessing edits are necessary in order
+# to create connectivity that is required for the flood-filling
+# alogiright (ICE-9) used in the next step.
+
+# Path of legacy OM4 preprocessing code
 MOM6_EXAMPLES_PREPROC = /opt/tools/MOM6-examples/ice_ocean_SIS2/OM4_025/preprocessing
 
-showenv:
-	env
-	-set
-	-module list
-	which python
-	-python --version
-
-
-
-# Horizontal Grids
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-.PHONY: ocean_grid
-ocean_grid: ocean_hgrid.nc
-
-#ocean_hgrid.nc:
-#	$(OCEAN_GRID_TOOL) --write_subgrid_files -f $(@F) -r $(OCEAN_INVERSE_RESOLUTION) --lon_dp 90.0 --lat_dp -90.0 --south_cap_lat -70.0  --exfracdp 0.0  --south_cutoff_row 21 
-
-ocean_hgrid.nc:
-	$(OCEAN_GRID_TOOL) --write_subgrid_files -f $(@F) -r $(OCEAN_INVERSE_RESOLUTION) --r_dp 0.2 --south_cutoff_row 83
-
-# Topography Generaion
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-tools/ocean_model_topog_generator:
-	echo $@
-	mkdir -p $(@D) 
-	cd $(@D); git clone --recursive https://github.com/nikizadehgfdl/ocean_model_topog_generator.git
-
-ocean_topog_BP.nc: 
-	$(OCEAN_TOPOG_TOOL) --hgridfilename ./ocean_hgrid.ncBP.nc --outputfilename $(@F) $(OCEAN_TOPOG_SRC)
-
-ocean_topog_MERC.nc: 
-	$(OCEAN_TOPOG_TOOL) --hgridfilename ./ocean_hgrid.ncMerc.nc --outputfilename $(@F) $(OCEAN_TOPOG_SRC)
-
-ocean_topog_SO.nc: 
-	$(OCEAN_TOPOG_TOOL) --hgridfilename ./ocean_hgrid.ncSO.nc --outputfilename $(@F) $(OCEAN_TOPOG_SRC)
-
-ocean_topog_SC.nc: 
-	$(OCEAN_TOPOG_TOOL) --hgridfilename ./ocean_hgrid.ncSC.nc --outputfilename $(@F) $(OCEAN_TOPOG_SRC)
-
-ocean_topog_merged.nc: ocean_topog_MERC.nc ocean_topog_SO.nc ocean_topog_BP.nc ocean_topog_SC.nc
-	merge_topog_tiles.py --tilefiles ocean_topog_SC.nc,ocean_topog_SO.nc,ocean_topog_MERC.nc,ocean_topog_BP.nc --outputfilename $(@F)
-
 ocean_topog_edited.nc: ocean_topog_merged.nc
-	# Shift OM4 topog edits by 40 points; all edits were done on a larger grid at the
-	# last step of the OM4 preprocessing chain was to drop the first 40 rows
+	# Use the existing OM4 topography edits
 	cp $(MOM6_EXAMPLES_PREPROC)/OM4_topography_edits.nc adjusted_om4_edits.nc
-	python adjust_topo_edit_jindex.py adjusted_om4_edits.nc -40
-	# Apply topog edits
+	
+	# Shift OM4 topog edits by 40 points; all edits were done on a 
+	# larger grid and last step of the OM4 preprocessing chain was to 
+	# drop the first 40 rows
+	$(PYTHON3) $(TOOLDIR)/auxillary/adjust_topo_edit_jindex.py \
+        adjusted_om4_edits.nc -40
+	
+	# The OM4 convention had a flipped sign convention
 	cp ocean_topog_merged.nc tmp.nc 
 	ncap2 -hs "depth=depth*(-1)" tmp.nc tmp2.nc
+	
+	# Apply the topography edits using the legacy OM4 tool
 	$(PYTHON2) $(MOM6_EXAMPLES_PREPROC)/apply_edits.py adjusted_om4_edits.nc tmp2.nc
+	
+	# Flip the sign back 
 	ncap2 -hs "depth=depth*(-1)" tmp2.nc $(@F)
 
-ocean_topog_ice9ed.nc: ocean_topog_edited.nc
-	#ice9.py ocean_topog_edited.nc --variable 'height' --iseed 10 --jseed 200 --output $(@F)
-	ice9.py ocean_topog_edited.nc --variable 'depth' --iseed 10 --jseed 200 --output $(@F)
-	#ice9.py ocean_topog_edited.nc --output $(@F)
-	#$(PYTHON2) $(MOM6_EXAMPLES_PREPROC)/ice9.py ocean_topog_edited.nc --output $(@F)
 
-#ocean_topog_ice9ed_missingBlackSea.nc: ocean_topog_editted.nc
-#        #pytools/thin-wall-topography/python/ice9.py topog_editted.nc --variable 'height' --iseed 10 --jseed 200 --output $(@F)
-#	ice9.py ocean_topog_editted.nc --variable 'height' --iseed 10 --jseed 200 --output $(@F)
+# Part 2c: Flood-filling & Connectivity (ICE-9)
+# ---------------------------------------------
+
+# This step uses the ICE-9 algorighm to determine the basin conenctivity and
+# arrive at a wet mask for the grid. (NOTE: this wet mask may be adjusted by
+# any runtime topography edits that are used by the model, so this step should
+# not be considered the models' final wet mask; refer to the `ocean_static.nc`
+# file written by the model at runtime.)
+
+ocean_topog_ice9ed.nc: ocean_topog_edited.nc
+	ice9.py ocean_topog_edited.nc --variable 'depth' \
+        --iseed 10 --jseed 200 --output $(@F)
+
 
 ocean_topog.nc: ocean_topog_ice9ed.nc
 	cp ocean_topog_ice9ed.nc topog.nc
 	cp topog.nc ocean_topog.nc
 
+
+# Part 3: FMS Grid Spec, Mosaic Files, and Mask Tables
+# --------------------------------------
+
 ocean_mosaic.nc: ocean_hgrid.nc ocean_topog.nc
-	$(FRE_NCTOOLS)/make_solo_mosaic --num_tiles 1 --dir . --mosaic_name ocean_mosaic --tile_file ocean_hgrid.nc --periodx 360.
+	$(FRE_NCTOOLS)/make_solo_mosaic \
+        --num_tiles 1 \
+        --dir . \
+        --mosaic_name ocean_mosaic \
+        --tile_file ocean_hgrid.nc \
+        --periodx 360.
 
-
-
-# Grid Spec file
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 grid_spec.nc: ocean_mosaic.nc
-	$(FRE_NCTOOLS)/make_quick_mosaic --reproduce_siena --input_mosaic ocean_mosaic.nc --mosaic_name grid_spec --ocean_topog ocean_topog.nc 
+	$(FRE_NCTOOLS)/make_quick_mosaic \
+        --reproduce_siena \
+        --input_mosaic ocean_mosaic.nc \
+        --mosaic_name grid_spec \
+        --ocean_topog ocean_topog.nc 
 
-
-# Mask tables
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 mask_tables: $(FRE_NCTOOLS)/check_mask ocean_mosaic.nc ocean_topog.nc
 	$(FRE_NCTOOLS)/check_mask --grid_file ocean_mosaic.nc --ocean_topog ocean_topog.nc --layout 20,10
 	$(FRE_NCTOOLS)/check_mask --grid_file ocean_mosaic.nc --ocean_topog ocean_topog.nc --layout 20,20
@@ -109,100 +197,100 @@ mask_tables: $(FRE_NCTOOLS)/check_mask ocean_mosaic.nc ocean_topog.nc
 	touch $@
 
 
-# Ocean Color file
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-seawifs-clim-1997-2010.nc: tools/interp_and_fill
-#ocean_hgrid.nc ocean_mask.nc tools/interp_and_fill 
-	dmget /archive/gold/datasets/obs/SeaWiFS/fill_ocean_color/seawifs-clim-1997-2010.nc
-	ln -s /archive/gold/datasets/obs/SeaWiFS/fill_ocean_color/seawifs-clim-1997-2010.nc seawifs-clim-1997-2010_source.nc
-	tools/interp_and_fill/interp_and_fill.py ocean_hgrid.nc ocean_mask.nc seawifs-clim-1997-2010_source.nc  chlor_a --fms $(@F)
-#	cd $(@D); ncrename -O -v chlor_a,CHL_A seawifs-clim-1997-2010.nc seawifs-clim-1997-2010.nc
-#	cd $(@D); ncatted -h -a modulo,TIME,c,c,' ' $(@F)
-
-
-#////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-# Temperature and Salinity Initialization
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#This is already done for 1/2,1/4,1/8 degrees
-#Use https://github.com/adcroft/convert_WOA13
-WOA05_ptemp_salt_monthly.nc: ocean_hgrid.nc ocean_topog.nc
-	python tools/convert_WOA13/
-	ncatted -h -a modulo,TIME,c,c,' ' WOA05_ptemp_salt_monthly.nc
-
-
-# River Runoff File
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-$(TOOLS)/regrid_runoff:
-	mkdir -p $(TOOLS) 
-	cd $(TOOLS); git clone -b nikizadehgfdl/use_netcdf4_deflation https://github.com/nikizadehgfdl/regrid_runoff.git
-
-runoff.daitren.clim.nc: $(TOOLS)/regrid_runoff ocean_mosaic.nc ocean_mask.nc
-#This needs python 3 + numba
-#	(cd $(@D); time /net2/nnz/adcroft/regrid_runoff/regrid_runoff.py ocean_hgrid.nc ocean_mask.nc ../runoff.daitren.clim.v2011.02.10.nc --fms runoff_tmp.nc
-#This needs python 3 
-	cd $(@D); time ../tools/regrid_runoff/regrid_runoff_nonumba.py ocean_hgrid.nc ocean_mask.nc /archive/gold/datasets/CORE/NYF_v2.0/runoff.daitren.clim.v2011.02.10.nc --fms $(@F)  --progress
-	cd $(@D); ncks -h -3 -O $(@F) $(@F)
-	cd $(@D); ncatted -h -O -a 'modulo,time,c,c, ' $(@F)
-
-runoff.daitren.iaf.nc: ocean_mosaic.nc ocean_mask.nc tools/regrid_runoff
-	cd $(@D); time $(TOOLS)/regrid_runoff/regrid_runoff_nonumba.py ocean_hgrid.nc ocean_mask.nc /archive/gold/datasets/CORE/IAF_v2.0/runoff.daitren.iaf.v2011.02.10.nc --fms $(@F) --progress
-	cd $(@D); ncks -h -3 -O $(@F) $(@F)
-	cd $(@D); ncatted -h -O -a 'modulo,time,c,c, ' $(@F)
-	cd $(@D); ncatted -h -O -a modulo_beg,time,a,c,"1948-01-01 00:00:00" $(@F)
-	cd $(@D); ncatted -h -O -a modulo_end,time,a,c,"2008-01-01 00:00:00" $(@F)
-
-
-# Salt Restore File
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-salt_restore.nc: ocean_hgrid.nc ocean_mosaic.nc PHC2_salx.2004_08_03.corrected.nc tools/interp_and_fill
-	tools/interp_and_fill/interp_and_fill.py  ocean_hgrid.nc ocean_mask.nc PHC2_salx.2004_08_03.corrected.nc SALT --fms --closest $(@F)
-	ncatted -h -a modulo,time,c,c,' ' $(@F)
-	ncatted -h -a units,time,m,c,'days since 0001-01-01 00:00:00' $(@F)
-
-PHC2_salx.2004_08_03.corrected.nc: PHC2_salx.2004_08_03.nc
-	ncap2 -h -O -s 'time(:)={15,45,76,106,136,168,198,228,258,288,320,350}' PHC2_salx.2004_08_03.nc PHC2_salx.2004_08_03.corrected.nc
-	ncatted -h -O -a units,time,o,c,'days since 1900-01-01 00:00:00' PHC2_salx.2004_08_03.corrected.nc
-	ncatted -h -O -a long_name,time,o,c,'Day of year' PHC2_salx.2004_08_03.corrected.nc
-	ncatted -h -O -a calendar,time,c,c,'julian' PHC2_salx.2004_08_03.corrected.nc
-	ncatted -h -O -a modulo,time,c,c,' ' PHC2_salx.2004_08_03.corrected.nc
-	ncatted -h -O -a calendar_type,time,c,c,'julian' PHC2_salx.2004_08_03.corrected.nc
-
-PHC2_salx.2004_08_03.nc:
-	wget http://data1.gfdl.noaa.gov/~nnz/mom4/COREv1/support_data/PHC2_salx.2004_08_03.nc
-
-
-
-
-# Geothermal Flux
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-#regrid geothermal_davies2013
-geothermal_davies2013_v1.nc: tools/preprocessing_geothermal/Makefile convert_Davies_2013/ggge20271-sup-0003-Data_Table1_Eq_lon_lat_Global_HF.nc
-	\rm convert_Davies_2013 ; ln -s /archive/gold/datasets/obs/convert_Davies_2013 .; python tools/preprocessing_geothermal/regrid_geothermal.py
-convert_Davies_2013/ggge20271-sup-0003-Data_Table1_Eq_lon_lat_Global_HF.nc:
-	\rm convert_Davies_2013 ; ln -s /archive/gold/datasets/obs/convert_Davies_2013 .
-tools/preprocessing_geothermal/Makefile:
-	git clone https://github.com/adcroft/OM4_05_preprocessing_geothermal.git $(@D)
-	#cd $(@D); make convert_Davies_2013/ggge20271-sup-0003-Data_Table1_Eq_lon_lat_Global_HF.nc
-
-
-
-# Ocean Color file
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-tidal_amplitude.nc: ocean_hgrid.nc ocean_topog.nc
-	python tools/remap_Tidal_forcing_TPXO9.py 
-
-
-
-clean:
-#	-rm -rf fre_nctools local tools
-	-rm -rf stdout *.nc logfile* input.nml 
-
-tools/md5sums.txt:
-	md5sum *.nc >> $@
-
-mosaic.tar:
-	tar cvf $(@F) ocean_hgrid.nc ocean_topog.nc ocean_mosaic.nc land_mask.nc ocean_mask.nc atmos_mosaic_tile*.nc land_mosaic_tile*.nc grid_spec.nc salt_restore.nc geothermal_davies2013_v1.nc Makefile.* tidal_amplitude.nc mask_table.* runoff.daitren.iaf.nc seawifs-clim-1997-2010.nc
+###   # Ocean Color file
+###   # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+###   seawifs-clim-1997-2010.nc: tools/interp_and_fill
+###   #ocean_hgrid.nc ocean_mask.nc tools/interp_and_fill 
+###   	dmget /archive/gold/datasets/obs/SeaWiFS/fill_ocean_color/seawifs-clim-1997-2010.nc
+###   	ln -s /archive/gold/datasets/obs/SeaWiFS/fill_ocean_color/seawifs-clim-1997-2010.nc seawifs-clim-1997-2010_source.nc
+###   	tools/interp_and_fill/interp_and_fill.py ocean_hgrid.nc ocean_mask.nc seawifs-clim-1997-2010_source.nc  chlor_a --fms $(@F)
+###   #	cd $(@D); ncrename -O -v chlor_a,CHL_A seawifs-clim-1997-2010.nc seawifs-clim-1997-2010.nc
+###   #	cd $(@D); ncatted -h -a modulo,TIME,c,c,' ' $(@F)
+###   
+###   
+###   #////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+###   #////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+###   #////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+###   
+###   
+###   # Temperature and Salinity Initialization
+###   # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+###   #This is already done for 1/2,1/4,1/8 degrees
+###   #Use https://github.com/adcroft/convert_WOA13
+###   WOA05_ptemp_salt_monthly.nc: ocean_hgrid.nc ocean_topog.nc
+###   	python tools/convert_WOA13/
+###   	ncatted -h -a modulo,TIME,c,c,' ' WOA05_ptemp_salt_monthly.nc
+###   
+###   
+###   # River Runoff File
+###   # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+###   $(TOOLS)/regrid_runoff:
+###   	mkdir -p $(TOOLS) 
+###   	cd $(TOOLS); git clone -b nikizadehgfdl/use_netcdf4_deflation https://github.com/nikizadehgfdl/regrid_runoff.git
+###   
+###   runoff.daitren.clim.nc: $(TOOLS)/regrid_runoff ocean_mosaic.nc ocean_mask.nc
+###   #This needs python 3 + numba
+###   #	(cd $(@D); time /net2/nnz/adcroft/regrid_runoff/regrid_runoff.py ocean_hgrid.nc ocean_mask.nc ../runoff.daitren.clim.v2011.02.10.nc --fms runoff_tmp.nc
+###   #This needs python 3 
+###   	cd $(@D); time ../tools/regrid_runoff/regrid_runoff_nonumba.py ocean_hgrid.nc ocean_mask.nc /archive/gold/datasets/CORE/NYF_v2.0/runoff.daitren.clim.v2011.02.10.nc --fms $(@F)  --progress
+###   	cd $(@D); ncks -h -3 -O $(@F) $(@F)
+###   	cd $(@D); ncatted -h -O -a 'modulo,time,c,c, ' $(@F)
+###   
+###   runoff.daitren.iaf.nc: ocean_mosaic.nc ocean_mask.nc tools/regrid_runoff
+###   	cd $(@D); time $(TOOLS)/regrid_runoff/regrid_runoff_nonumba.py ocean_hgrid.nc ocean_mask.nc /archive/gold/datasets/CORE/IAF_v2.0/runoff.daitren.iaf.v2011.02.10.nc --fms $(@F) --progress
+###   	cd $(@D); ncks -h -3 -O $(@F) $(@F)
+###   	cd $(@D); ncatted -h -O -a 'modulo,time,c,c, ' $(@F)
+###   	cd $(@D); ncatted -h -O -a modulo_beg,time,a,c,"1948-01-01 00:00:00" $(@F)
+###   	cd $(@D); ncatted -h -O -a modulo_end,time,a,c,"2008-01-01 00:00:00" $(@F)
+###   
+###   
+###   # Salt Restore File
+###   # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+###   salt_restore.nc: ocean_hgrid.nc ocean_mosaic.nc PHC2_salx.2004_08_03.corrected.nc tools/interp_and_fill
+###   	tools/interp_and_fill/interp_and_fill.py  ocean_hgrid.nc ocean_mask.nc PHC2_salx.2004_08_03.corrected.nc SALT --fms --closest $(@F)
+###   	ncatted -h -a modulo,time,c,c,' ' $(@F)
+###   	ncatted -h -a units,time,m,c,'days since 0001-01-01 00:00:00' $(@F)
+###   
+###   PHC2_salx.2004_08_03.corrected.nc: PHC2_salx.2004_08_03.nc
+###   	ncap2 -h -O -s 'time(:)={15,45,76,106,136,168,198,228,258,288,320,350}' PHC2_salx.2004_08_03.nc PHC2_salx.2004_08_03.corrected.nc
+###   	ncatted -h -O -a units,time,o,c,'days since 1900-01-01 00:00:00' PHC2_salx.2004_08_03.corrected.nc
+###   	ncatted -h -O -a long_name,time,o,c,'Day of year' PHC2_salx.2004_08_03.corrected.nc
+###   	ncatted -h -O -a calendar,time,c,c,'julian' PHC2_salx.2004_08_03.corrected.nc
+###   	ncatted -h -O -a modulo,time,c,c,' ' PHC2_salx.2004_08_03.corrected.nc
+###   	ncatted -h -O -a calendar_type,time,c,c,'julian' PHC2_salx.2004_08_03.corrected.nc
+###   
+###   PHC2_salx.2004_08_03.nc:
+###   	wget http://data1.gfdl.noaa.gov/~nnz/mom4/COREv1/support_data/PHC2_salx.2004_08_03.nc
+###   
+###   
+###   
+###   
+###   # Geothermal Flux
+###   # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+###   #regrid geothermal_davies2013
+###   geothermal_davies2013_v1.nc: tools/preprocessing_geothermal/Makefile convert_Davies_2013/ggge20271-sup-0003-Data_Table1_Eq_lon_lat_Global_HF.nc
+###   	\rm convert_Davies_2013 ; ln -s /archive/gold/datasets/obs/convert_Davies_2013 .; python tools/preprocessing_geothermal/regrid_geothermal.py
+###   convert_Davies_2013/ggge20271-sup-0003-Data_Table1_Eq_lon_lat_Global_HF.nc:
+###   	\rm convert_Davies_2013 ; ln -s /archive/gold/datasets/obs/convert_Davies_2013 .
+###   tools/preprocessing_geothermal/Makefile:
+###   	git clone https://github.com/adcroft/OM4_05_preprocessing_geothermal.git $(@D)
+###   	#cd $(@D); make convert_Davies_2013/ggge20271-sup-0003-Data_Table1_Eq_lon_lat_Global_HF.nc
+###   
+###   
+###   
+###   # Ocean Color file
+###   # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+###   tidal_amplitude.nc: ocean_hgrid.nc ocean_topog.nc
+###   	python tools/remap_Tidal_forcing_TPXO9.py 
+###   
+###   
+###   
+###   clean:
+###   #	-rm -rf fre_nctools local tools
+###   	-rm -rf stdout *.nc logfile* input.nml 
+###   
+###   tools/md5sums.txt:
+###   	md5sum *.nc >> $@
+###   
+###   mosaic.tar:
+###   	tar cvf $(@F) ocean_hgrid.nc ocean_topog.nc ocean_mosaic.nc land_mask.nc ocean_mask.nc atmos_mosaic_tile*.nc land_mosaic_tile*.nc grid_spec.nc salt_restore.nc geothermal_davies2013_v1.nc Makefile.* tidal_amplitude.nc mask_table.* runoff.daitren.iaf.nc seawifs-clim-1997-2010.nc
