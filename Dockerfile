@@ -284,6 +284,8 @@ RUN echo "echo 'OM5 Preprocessing Container'" >> /pad/$UNPRIV_USER/.bashrc
 # Include Makefile
 COPY Makefile_OM5_rp /opt/tools/Makefile_OM5_rp
 RUN chown -R $UNPRIV_USER /opt/tools/Makefile_OM5_rp && chgrp -R $UNPRIV_USER /opt/tools/Makefile_OM5_rp
+COPY input_data.mk /opt/tools/input_data.mk
+RUN chown -R $UNPRIV_USER /opt/tools/input_data.mk && chgrp -R $UNPRIV_USER /opt/tools/input_data.mk
 
 # Make mount point for GOLD datasets (GFDL-specific)
 RUN mkdir -p /archive/gold
@@ -291,6 +293,7 @@ RUN mkdir -p /archive/gold
 # Make results directory
 RUN mkdir /results
 COPY Makefile_OM5_rp /results/Makefile_OM5_rp
+COPY input_data.mk /results/input_data.mk
 RUN chown -R $UNPRIV_USER /results
 RUN chgrp -R $UNPRIV_USER /results
 

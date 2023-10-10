@@ -22,6 +22,7 @@
 #        2a: Interpolared Topography with Subgrid Tiles
 #        2b: Topgraphy Edits
 #        2c: Flood-filling & Connectivity (ICE-9)
+#        2d: Reset the wet mask to match OM4
 #
 #     Part 3: FMS Grid Spec, Mosaic Files, and Mask Tables
 #
@@ -30,14 +31,8 @@
 #    make -f Makefile_OM5_rp mask_tables
 
 
-# (Unused parameters)
-# NP=16
-TOOLDIR = /opt/tools
-FRE_NCTOOLS = /opt/fre-nctools/bin
-# TOOLS =       tools
-# AJA_TOOLS = /opt/aja
-# #OCEAN_TOPOG_SRC  = --source_file GEBCO_2020.nc --source_lon lon --source_lat lat --source_elv elevation 
-# #OCEAN_TOPOG_SRC  = --source_file GEBCO_08_v1.nc --source_lon longitude --source_lat latitude --source_elv depth
+# Include additional makefile(s) defining input datasets
+include *.mk
 
 
 # COMMON PATHS & SETTINGS
@@ -50,6 +45,10 @@ PYTHON3 = /pad/griduser/.conda/envs/py311/bin/python
 
 # GFDL O-division has a central repository for common datasets
 GOLD_DIR = /archive/gold/datasets
+
+# Directories inside the container with tools
+TOOLDIR = /opt/tools
+FRE_NCTOOLS = /opt/fre-nctools/bin
 
 
 # Part 1: Horizontal Grid
@@ -167,7 +166,13 @@ ocean_topog_ice9ed.nc: ocean_topog_edited.nc
 	
 	# Flip the sign back 
 	# ncap2 -hs "depth=depth*(-1)" tmp3.nc $(@F)
-	
+
+
+# Part 2d: Reset the wet mask to match OM4
+# ----------------------------------------
+
+# This step resets the new wet mask to be identical to the existing OM4
+# wet mask.
 
 ocean_topog_adjusted_mask.nc: ocean_topog_ice9ed.nc
 	$(PYTHON3) $(TOOLDIR)/auxillary/reset_wet_mask.py \
