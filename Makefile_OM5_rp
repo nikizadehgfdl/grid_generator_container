@@ -33,8 +33,8 @@
 # (Unused parameters)
 # NP=16
 TOOLDIR = /opt/tools
+FRE_NCTOOLS = /opt/fre-nctools/bin
 # TOOLS =       tools
-# FRE_NCTOOLS = /opt/fre-nctools/bin
 # AJA_TOOLS = /opt/aja
 # #OCEAN_TOPOG_SRC  = --source_file GEBCO_2020.nc --source_lon lon --source_lat lat --source_elv elevation 
 # #OCEAN_TOPOG_SRC  = --source_file GEBCO_08_v1.nc --source_lon longitude --source_lat latitude --source_elv depth
@@ -142,9 +142,10 @@ ocean_topog_edited.nc: ocean_topog_merged.nc
 	
 	# Apply the topography edits using the legacy OM4 tool
 	$(PYTHON2) $(MOM6_EXAMPLES_PREPROC)/apply_edits.py adjusted_om4_edits.nc tmp2.nc
+	cp tmp2.nc $(@F)
 	
 	# Flip the sign back 
-	ncap2 -hs "depth=depth*(-1)" tmp2.nc $(@F)
+	# ncap2 -hs "depth=depth*(-1)" tmp2.nc $(@F)
 	
 	# Remove temporary files
 	rm -f tmp.nc
@@ -161,24 +162,23 @@ ocean_topog_edited.nc: ocean_topog_merged.nc
 # file written by the model at runtime.)
 
 ocean_topog_ice9ed.nc: ocean_topog_edited.nc
-	# The OM4 convention had a flipped sign convention
-	cp ocean_topog_edited.nc tmp.nc 
-	ncap2 -hs "depth=depth*(-1)" tmp.nc tmp2.nc
-	
-	ice9.py tmp2.nc --variable 'depth' \
-        --iseed 10 --jseed 200 --output tmp3.nc
+	ice9.py ocean_topog_edited.nc --variable 'depth' \
+        --iseed 10 --jseed 200 --output $(@F)
 	
 	# Flip the sign back 
-	ncap2 -hs "depth=depth*(-1)" tmp3.nc $(@F)
+	# ncap2 -hs "depth=depth*(-1)" tmp3.nc $(@F)
 	
-	# Remove temporary files
-	rm -f tmp.nc
-	rm -f tmp2.nc
-	rm -f tmp3.nc
 
+ocean_topog_adjusted_mask.nc: ocean_topog_ice9ed.nc
+	$(PYTHON3) $(TOOLDIR)/auxillary/reset_wet_mask.py \
+        $(GOLD_DIR)/OM4_025/mosaic.v20170622.unpacked/ocean_topog.nc \
+        ocean_topog_ice9ed.nc $(@F)
 
-ocean_topog.nc: ocean_topog_ice9ed.nc
-	cp ocean_topog_ice9ed.nc topog.nc
+ocean_topog.nc: ocean_topog_adjusted_mask.nc
+	cp ocean_topog_adjusted_mask.nc topog.nc
+	ncatted -h -a creation_date,global,c,c,"`date`" topog.nc
+	ncatted -h -a source,global,c,c,"GEBCO 2020 remapped via RSC with OM4_025 land mask applied" topog.nc
+	ncatted -h -a topo_edits,global,c,c,"True" topog.nc
 	cp topog.nc ocean_topog.nc
 
 
