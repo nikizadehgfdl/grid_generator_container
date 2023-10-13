@@ -197,14 +197,17 @@ out = xr.Dataset()
 out['tideamp'] = xr.DataArray(data=tideamp_regridded.values,
                               dims=('ny', 'nx'),
                               attrs = {'units': "m.s-1"})
+
+print(tideamp_regridded)
+print(tideamp_regridded.coords)
                               
-out['lon'] = xr.DataArray(data=tideamp_regridded.lon.values,
+out['lon'] = xr.DataArray(data=OM4grid.lon.values,
                           dims=('ny', 'nx'),
                           attrs = {'axis': 'X', 'units': 'degrees_east',
                                    'long_name': 'Longitude',
                                    'standard_name': 'longitude'})
 
-out['lat'] = xr.DataArray(data=tideamp_regridded.lat.values,
+out['lat'] = xr.DataArray(data=OM4grid.lat.values,
                           dims=('ny', 'nx'),
                           attrs = {'axis': 'Y', 'units': 'degrees_north',
                                    'long_name': 'Latitude',
