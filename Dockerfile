@@ -7,7 +7,11 @@
 # Stage 00: Establish the base container
 #----------------------------------------------
 # Use Miniconda3 as base image
-FROM continuumio/miniconda3:23.3.1-0 as base
+#FROM continuumio/miniconda3:23.3.1-0 as base
+FROM condaforge/miniforge3 as base
+
+# Turn off prompts
+ARG DEBIAN_FRONTEND=noninteractive
 
 # Set the name for the non-privilged user
 ARG UNPRIV_USER=griduser
@@ -20,15 +24,31 @@ ARG NCO_VER=4.9.7-1
 ARG WGET_VER=1.21-1+deb11u1
 ARG LIBC_VER=2.31-13+deb11u5
 
+# # Install Fortran Libraries & make
+# RUN apt-get update && apt-get install -y \
+#     git=$GIT_VER \
+#     libnetcdf-dev=$LIBNETCDF_VER \
+#     libnetcdff-dev=$LIBNETCDFF_VER \
+#     make=$MAKE_VER \
+#     nco=$NCO_VER \
+#     wget=$WGET_VER \
+#     libc-bin=$LIBC_VER \
+#     less \
+#     ucommon-utils \
+#     patch \
+#     tcsh \
+# #    emacs \
+#     vim
+
 # Install Fortran Libraries & make
 RUN apt-get update && apt-get install -y \
-    git=$GIT_VER \
-    libnetcdf-dev=$LIBNETCDF_VER \
-    libnetcdff-dev=$LIBNETCDFF_VER \
-    make=$MAKE_VER \
-    nco=$NCO_VER \
-    wget=$WGET_VER \
-    libc-bin=$LIBC_VER \
+    git \
+    libnetcdf-dev \
+    libnetcdff-dev \
+    make \
+    nco \
+    wget \
+    libc-bin \
     less \
     ucommon-utils \
     patch \
@@ -52,12 +72,20 @@ ARG AUTOCONF_VER=2.69-14
 ARG GCC_VER=4:10.2.1-1
 ARG GFORTRAN_VER=4:10.2.1-1
 
+## Install git, C-compiler, Fortran-compiler and autoreconf
+#RUN apt-get update && apt-get install -y \
+#    autoconf=$AUTOCONF_VER \
+#    gcc=$GCC_VER \
+#    gfortran=$GFORTRAN_VER
+
 # Install git, C-compiler, Fortran-compiler and autoreconf
 RUN apt-get update && apt-get install -y \
-    autoconf=$AUTOCONF_VER \
-    gcc=$GCC_VER \
-    gfortran=$GFORTRAN_VER
+    autoconf \
+    gcc-10 \
+    gfortran-10
 
+RUN ln -s /usr/bin/gcc-10 /usr/bin/gcc
+RUN ln -s /usr/bin/gfortran-10 /usr/bin/gfortran
 
 
 # Stage 1: Build the Python environment with tools
@@ -83,18 +111,19 @@ ARG SEAWATER_BLD=3.3.4\=py_1
 #WORKDIR /app
 
 # Update system level conda
-RUN conda update -n base -c defaults conda
+# RUN conda update -n base -c defaults conda
 
 # Update system level conda and add conda-forge as a channel
-RUN conda config --add channels conda-forge
-RUN conda install -y --override-channels -c conda-forge mamba
+#RUN conda config --add channels conda-forge
+#RUN conda install -y --override-channels -c conda-forge mamba
+RUN conda install mamba
 
 # Switch to non-privileged user
 ARG UNPRIV_USER=griduser
 USER $UNPRIV_USER
 
 # Create a new conda environment with Python 3.11 and the necessary packages
-RUN conda config --add channels conda-forge
+#RUN conda config --add channels conda-forge
 RUN mamba create -y -n py311 python=3.11 numpy matplotlib cartopy netcdf4 pytest scipy xarray dask numba tqdm xesmf xgcm seawater
 
 #RUN mamba create -y --prefix /pad/$UNPRIV_USER/py311 python=3.11 numpy matplotlib cartopy netcdf4 pytest scipy xarray dask numba tqdm xesmf xgcm seawater
@@ -116,7 +145,8 @@ RUN mamba create -y -n py311 python=3.11 numpy matplotlib cartopy netcdf4 pytest
 #     seawater=$SEAWATER_BLD
    
 # Create a Python 2.7 environment for the legacy tools
-RUN mamba create -y -n py27 python=2.7 numpy basemap blas cftime geos glib gstreamer hdf4 hdf5 intel-openmp matplotlib netcdf4 proj4 pyproj scipy gsw
+#RUN mamba create -y -n py27 python=2.7 numpy basemap blas cftime geos glib gstreamer hdf4 hdf5 intel-openmp matplotlib netcdf4 proj4 pyproj scipy gsw
+RUN mamba create -y -n py27 python=2.7 numpy basemap blas cftime geos glib gstreamer hdf4 hdf5 matplotlib netcdf4 proj4 pyproj scipy gsw
 
 
 # Stage 2: Build the FRE NCtools
@@ -129,6 +159,7 @@ ARG FRENC_COMMIT=dcbfc10
 # Clone and install FRE-NCtools
 RUN git clone https://github.com/NOAA-GFDL/FRE-NCtools.git
 RUN cd FRE-NCtools && git checkout $FRENC_COMMIT
+
 RUN cd FRE-NCtools && autoreconf -i && ./configure --prefix=/opt/fre-nctools && make install
 RUN apt list --installed > /opt/fre-nctools/version_record.txt
 
@@ -151,8 +182,8 @@ USER $UNPRIV_USER
 
 # Specific Repository Commits
 ARG NUMPYPI_COMMIT=493d489
-ARG GRIDGEN_COMMIT=a1664f1
-ARG TOPOGEN_COMMIT=1b089bc
+ARG GRIDGEN_COMMIT=4add8f6
+ARG TOPOGEN_COMMIT=fc722bb
 ARG SLOPPY_COMMIT=f016c3e
 ARG GEOCONV_COMMIT=8631ac5
 ARG GEOPROC_COMMIT=5846be6
@@ -227,7 +258,6 @@ RUN cd $TOOLDIR/numpypi && pip install -e .
 RUN cd $TOOLDIR/ocean_model_grid_generator && pip install -e .
 RUN cd $TOOLDIR/ocean_model_topog_generator && pip install -e .
 RUN cd $TOOLDIR/sloppy && pip install -e .
-
 
 
 # Stage 5: Build OM4 Preprocessing Tools
