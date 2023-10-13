@@ -89,21 +89,25 @@ OCEAN_TOPOG_SRC = --source_file $(GOLD_DIR)/topography/GEBCO_2020/GEBCO_2020.nc 
 # Bipolar Cap
 ocean_topog_BP.nc: 
 	$(OCEAN_TOPOG_TOOL) --hgridfilename ./ocean_hgrid.ncBP.nc \
+        --max_refine=5 --nxblocks=4 \
         --outputfilename $(@F) $(OCEAN_TOPOG_SRC)
 
 # Mercator Region
 ocean_topog_MERC.nc: 
 	$(OCEAN_TOPOG_TOOL) --hgridfilename ./ocean_hgrid.ncMerc.nc \
+        --max_refine=5 --nxblocks=4 \
         --outputfilename $(@F) $(OCEAN_TOPOG_SRC)
 
 # Southern Ocean Spherical Grid
 ocean_topog_SO.nc: 
 	$(OCEAN_TOPOG_TOOL) --hgridfilename ./ocean_hgrid.ncSO.nc \
+        --max_refine=5 --nxblocks=4 \
         --outputfilename $(@F) $(OCEAN_TOPOG_SRC)
 
 # Southern Cap
 ocean_topog_SC.nc: 
 	$(OCEAN_TOPOG_TOOL) --hgridfilename ./ocean_hgrid.ncSC.nc \
+        --max_refine=5 --nxblocks=1 \
         --outputfilename $(@F) $(OCEAN_TOPOG_SRC)
 
 # Merge all tiles together
