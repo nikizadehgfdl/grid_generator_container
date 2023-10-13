@@ -1,12 +1,36 @@
-###   # Ocean Color file
+# Ocean color / chlorophyll file
+# ------------------------------
+seawifs-clim-1997-2010.nc: ocean_hgrid.nc ocean_mask.nc
+	ln -s /archive/gold/datasets/obs/SeaWiFS/fill_ocean_color/seawifs-clim-1997-2010.nc seawifs-clim-1997-2010_source.nc
+	tools/interp_and_fill/interp_and_fill.py ocean_hgrid.nc ocean_mask.nc seawifs-clim-1997-2010_source.nc  chlor_a --fms $(@F)
+
+
+# Tidal amplitude file
+# --------------------
+tidal_amplitude.nc: ocean_hgrid.nc ocean_topog.nc
+	$(PYTHON3) $(TOOLDIR)/auxillary/remap_Tidal_forcing_TPXO9.py ocean_hgrid.nc ocean_topog.nc /TPOX
+
+###   # Salt Restore File
 ###   # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-###   seawifs-clim-1997-2010.nc: tools/interp_and_fill
-###   #ocean_hgrid.nc ocean_mask.nc tools/interp_and_fill 
-###   	dmget /archive/gold/datasets/obs/SeaWiFS/fill_ocean_color/seawifs-clim-1997-2010.nc
-###   	ln -s /archive/gold/datasets/obs/SeaWiFS/fill_ocean_color/seawifs-clim-1997-2010.nc seawifs-clim-1997-2010_source.nc
-###   	tools/interp_and_fill/interp_and_fill.py ocean_hgrid.nc ocean_mask.nc seawifs-clim-1997-2010_source.nc  chlor_a --fms $(@F)
-###   #	cd $(@D); ncrename -O -v chlor_a,CHL_A seawifs-clim-1997-2010.nc seawifs-clim-1997-2010.nc
-###   #	cd $(@D); ncatted -h -a modulo,TIME,c,c,' ' $(@F)
+###   salt_restore.nc: ocean_hgrid.nc ocean_mosaic.nc PHC2_salx.2004_08_03.corrected.nc tools/interp_and_fill
+###   	tools/interp_and_fill/interp_and_fill.py  ocean_hgrid.nc ocean_mask.nc PHC2_salx.2004_08_03.corrected.nc SALT --fms --closest $(@F)
+###   	ncatted -h -a modulo,time,c,c,' ' $(@F)
+###   	ncatted -h -a units,time,m,c,'days since 0001-01-01 00:00:00' $(@F)
+###   
+###   PHC2_salx.2004_08_03.corrected.nc: PHC2_salx.2004_08_03.nc
+###   	ncap2 -h -O -s 'time(:)={15,45,76,106,136,168,198,228,258,288,320,350}' PHC2_salx.2004_08_03.nc PHC2_salx.2004_08_03.corrected.nc
+###   	ncatted -h -O -a units,time,o,c,'days since 1900-01-01 00:00:00' PHC2_salx.2004_08_03.corrected.nc
+###   	ncatted -h -O -a long_name,time,o,c,'Day of year' PHC2_salx.2004_08_03.corrected.nc
+###   	ncatted -h -O -a calendar,time,c,c,'julian' PHC2_salx.2004_08_03.corrected.nc
+###   	ncatted -h -O -a modulo,time,c,c,' ' PHC2_salx.2004_08_03.corrected.nc
+###   	ncatted -h -O -a calendar_type,time,c,c,'julian' PHC2_salx.2004_08_03.corrected.nc
+###   
+###   PHC2_salx.2004_08_03.nc:
+###   	wget http://data1.gfdl.noaa.gov/~nnz/mom4/COREv1/support_data/PHC2_salx.2004_08_03.nc
+###   
+
+# Salt restoring file
+
 ###   
 ###   
 ###   #////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -44,24 +68,6 @@
 ###   	cd $(@D); ncatted -h -O -a modulo_beg,time,a,c,"1948-01-01 00:00:00" $(@F)
 ###   	cd $(@D); ncatted -h -O -a modulo_end,time,a,c,"2008-01-01 00:00:00" $(@F)
 ###   
-###   
-###   # Salt Restore File
-###   # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-###   salt_restore.nc: ocean_hgrid.nc ocean_mosaic.nc PHC2_salx.2004_08_03.corrected.nc tools/interp_and_fill
-###   	tools/interp_and_fill/interp_and_fill.py  ocean_hgrid.nc ocean_mask.nc PHC2_salx.2004_08_03.corrected.nc SALT --fms --closest $(@F)
-###   	ncatted -h -a modulo,time,c,c,' ' $(@F)
-###   	ncatted -h -a units,time,m,c,'days since 0001-01-01 00:00:00' $(@F)
-###   
-###   PHC2_salx.2004_08_03.corrected.nc: PHC2_salx.2004_08_03.nc
-###   	ncap2 -h -O -s 'time(:)={15,45,76,106,136,168,198,228,258,288,320,350}' PHC2_salx.2004_08_03.nc PHC2_salx.2004_08_03.corrected.nc
-###   	ncatted -h -O -a units,time,o,c,'days since 1900-01-01 00:00:00' PHC2_salx.2004_08_03.corrected.nc
-###   	ncatted -h -O -a long_name,time,o,c,'Day of year' PHC2_salx.2004_08_03.corrected.nc
-###   	ncatted -h -O -a calendar,time,c,c,'julian' PHC2_salx.2004_08_03.corrected.nc
-###   	ncatted -h -O -a modulo,time,c,c,' ' PHC2_salx.2004_08_03.corrected.nc
-###   	ncatted -h -O -a calendar_type,time,c,c,'julian' PHC2_salx.2004_08_03.corrected.nc
-###   
-###   PHC2_salx.2004_08_03.nc:
-###   	wget http://data1.gfdl.noaa.gov/~nnz/mom4/COREv1/support_data/PHC2_salx.2004_08_03.nc
 ###   
 ###   
 ###   
