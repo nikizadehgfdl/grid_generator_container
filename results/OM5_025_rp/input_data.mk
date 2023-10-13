@@ -1,14 +1,39 @@
 # Ocean color / chlorophyll file
 # ------------------------------
 seawifs-clim-1997-2010.nc: ocean_hgrid.nc ocean_mask.nc
-	ln -s /archive/gold/datasets/obs/SeaWiFS/fill_ocean_color/seawifs-clim-1997-2010.nc seawifs-clim-1997-2010_source.nc
-	tools/interp_and_fill/interp_and_fill.py ocean_hgrid.nc ocean_mask.nc seawifs-clim-1997-2010_source.nc  chlor_a --fms $(@F)
+	$(TOOLDIR)/interp_and_fill/interp_and_fill.py \
+        ocean_hgrid.nc \
+        ocean_mask.nc \
+        $(GOLD_DIR)/obs/SeaWiFS/fill_ocean_color/seawifs-clim-1997-2010.nc  \
+        chlor_a --fms $(@F)
 
 
 # Tidal amplitude file
 # --------------------
+# Script writted by Raf Dussin
 tidal_amplitude.nc: ocean_hgrid.nc ocean_topog.nc
-	$(PYTHON3) $(TOOLDIR)/auxillary/remap_Tidal_forcing_TPXO9.py ocean_hgrid.nc ocean_topog.nc /TPOX
+	$(PYTHON3) \
+        $(TOOLDIR)/auxillary/remap_Tidal_forcing_TPXO9.py \
+        ocean_hgrid.nc \
+        ocean_topog.nc \
+        $(GOLD_DIR)/obs
+
+
+# Geothermal Flux
+# ---------------
+# Geothermal flux is a time-invariant field. The source data are a CSV
+# CSV file that is contained in the supplemental material of 
+# Davies et al. 2013 (https://doi.org/10.1002/ggge.20271). The CSV file
+# was converted to a NetCDF file using the `convert_Davies_2013.py` script.
+# A copy of the NetCDF file is stored in $(GOLD_DIR) and is regridded to
+# the model horizontal grid using `regrid_geothermal.py`
+
+geothermal_davies2013_v1.nc:
+	rm -f convert_Davies_2013
+	ln -s /archive/gold/datasets/obs/convert_Davies_2013 .
+	$(PYTHON3) $(TOOLDIR)/OM4_05_preprocessing_geothermal/regrid_geothermal.py
+	rm -f convert_Davies_2013
+
 
 ###   # Salt Restore File
 ###   # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -27,24 +52,6 @@ tidal_amplitude.nc: ocean_hgrid.nc ocean_topog.nc
 ###   
 ###   PHC2_salx.2004_08_03.nc:
 ###   	wget http://data1.gfdl.noaa.gov/~nnz/mom4/COREv1/support_data/PHC2_salx.2004_08_03.nc
-###   
-
-# Salt restoring file
-
-###   
-###   
-###   #////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-###   #////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-###   #////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-###   
-###   
-###   # Temperature and Salinity Initialization
-###   # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-###   #This is already done for 1/2,1/4,1/8 degrees
-###   #Use https://github.com/adcroft/convert_WOA13
-###   WOA05_ptemp_salt_monthly.nc: ocean_hgrid.nc ocean_topog.nc
-###   	python tools/convert_WOA13/
-###   	ncatted -h -a modulo,TIME,c,c,' ' WOA05_ptemp_salt_monthly.nc
 ###   
 ###   
 ###   # River Runoff File
@@ -67,37 +74,3 @@ tidal_amplitude.nc: ocean_hgrid.nc ocean_topog.nc
 ###   	cd $(@D); ncatted -h -O -a 'modulo,time,c,c, ' $(@F)
 ###   	cd $(@D); ncatted -h -O -a modulo_beg,time,a,c,"1948-01-01 00:00:00" $(@F)
 ###   	cd $(@D); ncatted -h -O -a modulo_end,time,a,c,"2008-01-01 00:00:00" $(@F)
-###   
-###   
-###   
-###   
-###   
-###   # Geothermal Flux
-###   # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-###   #regrid geothermal_davies2013
-###   geothermal_davies2013_v1.nc: tools/preprocessing_geothermal/Makefile convert_Davies_2013/ggge20271-sup-0003-Data_Table1_Eq_lon_lat_Global_HF.nc
-###   	\rm convert_Davies_2013 ; ln -s /archive/gold/datasets/obs/convert_Davies_2013 .; python tools/preprocessing_geothermal/regrid_geothermal.py
-###   convert_Davies_2013/ggge20271-sup-0003-Data_Table1_Eq_lon_lat_Global_HF.nc:
-###   	\rm convert_Davies_2013 ; ln -s /archive/gold/datasets/obs/convert_Davies_2013 .
-###   tools/preprocessing_geothermal/Makefile:
-###   	git clone https://github.com/adcroft/OM4_05_preprocessing_geothermal.git $(@D)
-###   	#cd $(@D); make convert_Davies_2013/ggge20271-sup-0003-Data_Table1_Eq_lon_lat_Global_HF.nc
-###   
-###   
-###   
-###   # Ocean Color file
-###   # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-###   tidal_amplitude.nc: ocean_hgrid.nc ocean_topog.nc
-###   	python tools/remap_Tidal_forcing_TPXO9.py 
-###   
-###   
-###   
-###   clean:
-###   #	-rm -rf fre_nctools local tools
-###   	-rm -rf stdout *.nc logfile* input.nml 
-###   
-###   tools/md5sums.txt:
-###   	md5sum *.nc >> $@
-###   
-###   mosaic.tar:
-###   	tar cvf $(@F) ocean_hgrid.nc ocean_topog.nc ocean_mosaic.nc land_mask.nc ocean_mask.nc atmos_mosaic_tile*.nc land_mosaic_tile*.nc grid_spec.nc salt_restore.nc geothermal_davies2013_v1.nc Makefile.* tidal_amplitude.nc mask_table.* runoff.daitren.iaf.nc seawifs-clim-1997-2010.nc
