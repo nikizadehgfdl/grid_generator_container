@@ -70,7 +70,7 @@ ocean_hgrid.nc:
             -r 4 \
             --south_ocean_lower_lat -88.57 \
             --no_south_cap \
-            --match_dy so 
+            --match_dy so
  
 
 # Part 2a: Interpolared Topography with Subgrid Tiles
@@ -90,28 +90,25 @@ OCEAN_TOPOG_SRC = --source_file $(GOLD_DIR)/topography/GEBCO_2020/GEBCO_2020.nc 
 # Bipolar Cap
 ocean_topog_BP.nc: 
 	$(OCEAN_TOPOG_TOOL) --hgridfilename ./ocean_hgrid.ncBP.nc \
+        --max_refine=5 --nxblocks=4 \
         --outputfilename $(@F) $(OCEAN_TOPOG_SRC)
 
 # Mercator Region
 ocean_topog_MERC.nc: 
 	$(OCEAN_TOPOG_TOOL) --hgridfilename ./ocean_hgrid.ncMerc.nc \
+        --max_refine=5 --nxblocks=4 \
         --outputfilename $(@F) $(OCEAN_TOPOG_SRC)
 
 # Southern Ocean Spherical Grid
 ocean_topog_SO.nc: 
 	$(OCEAN_TOPOG_TOOL) --hgridfilename ./ocean_hgrid.ncSO.nc \
-        --outputfilename $(@F) $(OCEAN_TOPOG_SRC)
-
-# Southern Cap
-ocean_topog_SC.nc: 
-	$(OCEAN_TOPOG_TOOL) --hgridfilename ./ocean_hgrid.ncSC.nc \
+        --max_refine=5 --nxblocks=4 \
         --outputfilename $(@F) $(OCEAN_TOPOG_SRC)
 
 # Merge all tiles together
-ocean_topog_merged.nc: ocean_topog_MERC.nc ocean_topog_SO.nc \
-                       ocean_topog_BP.nc ocean_topog_SC.nc
+ocean_topog_merged.nc: ocean_topog_MERC.nc ocean_topog_SO.nc ocean_topog_BP.nc
 	merge_topog_tiles.py \
-        --tilefiles ocean_topog_SC.nc,ocean_topog_SO.nc,ocean_topog_MERC.nc,ocean_topog_BP.nc \
+        --tilefiles ocean_topog_SO.nc,ocean_topog_MERC.nc,ocean_topog_BP.nc \
         --outputfilename $(@F)
 
 
