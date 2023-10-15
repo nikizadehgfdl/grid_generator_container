@@ -1,5 +1,26 @@
-USAGE INSTRUCTIONS
+BUILDING INSTRUCTIONS
 --------------------------------------------
+
+CASE 1: Docker
+++++++++++++++
+
+To build the container:
+    docker build -t grid_generator:latest .
+
+To start the container:
+    mkdir results
+    docker run -it -v `pwd`results:/results grid_generator:latest
+
+Exporting a copy of the container: 
+    docker save -o grid_generator.tar grid_generator:latest
+
+Uploading container to DockerHub:
+    docker tag grid_generator:latest username/grid_generator:vYYYYMMDD
+    docker tag grid_generator:latest username/grid_generator:latest
+
+
+CASE 2: Singularity
++++++++++++++++++++
 
 Convert the docker container to a writable "sandbox" container directory:
     (1)  singularity build --sandbox grid_generator docker-archive://grid_generator.tar
