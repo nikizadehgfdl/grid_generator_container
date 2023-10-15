@@ -131,7 +131,7 @@ ocean_topog_edited.nc: ocean_topog_merged.nc
 	# larger grid and last step of the OM4 preprocessing chain was to 
 	# drop the first 40 rows
 	$(PYTHON3) $(TOOLDIR)/auxillary/adjust_topo_edit_jindex.py \
-        adjusted_om4_edits.nc -40
+        adjusted_om4_edits.nc 41 120
 	
 	# The OM4 convention had a flipped sign convention
 	cp ocean_topog_merged.nc tmp.nc 

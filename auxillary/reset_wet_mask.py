@@ -68,6 +68,16 @@ existing_topog_file = xr.open_dataset(existing_topog_file)
 target_wet_mask = xr.where(target_topog_file["depth"] > 0.0, 1.0, 0.0)
 existing_wet_mask = xr.where(existing_topog_file["depth"] > 0.0, 1.0, 0.0)
 
+if existing_wet_mask.shape[0] > target_wet_mask.shape[0]:
+    cutoff = 120
+    target_nj = target_wet_mask.shape[0]
+    existing_nj = existing_wet_mask.shape[0]
+    
+    target_wet_mask = target_wet_mask[cutoff:]
+
+    subset_mask = existing_wet_mask[0:(existing_nj - target_wet_mask.shape[0])]
+    target_wet_mask = np.concatenate([subset_mask, target_wet_mask], axis=0)
+
 adjusted_depth = interp_and_reset_mask(
     existing_topog_file["depth"], existing_wet_mask, target_wet_mask
 )
