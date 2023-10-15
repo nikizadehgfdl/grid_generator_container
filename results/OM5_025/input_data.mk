@@ -1,1 +1,1 @@
-../OM5_025_rp/input_data.mk
+../OM5_025_dsp/input_data.mk
