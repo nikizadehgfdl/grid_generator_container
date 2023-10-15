@@ -1,19 +1,9 @@
 # OM5 Horizontal Grid, Topography, and Preprocessing Datasets
 # GFDL Ocean Division - October 2023
 #
-# Makefile for OM5 (Rotated Pole)
+# Makefile for OM5 (Standard South Pole)
 # -------------------------------
 #
-# The initial horizontal grid for OM5 is nearly identical to the grid
-# used in OM4 (Adcroft et al. 2019). The i,j array sizes are the same
-# between the models, and the geographical locations of the cell centers
-# are highly similar. For most locations, the differences are within
-# machine precision, with more significant differences over the Southern
-# Cap where the grid generation relies on trigonometric functions
-# (N. Zadeh, pers. comm.) whose results differ across machines/platforms.
-# Compared to OM4, bugfixes introduce some differences in the other grid
-# metrics (dx, dy, and cell area) that are considered superior to OM4.
-
 # This Makefile is broken into the following sections
 #
 #     Part 1: Horizontal Grid
@@ -56,12 +46,7 @@ FRE_NCTOOLS = /opt/fre-nctools/bin
 
 # Use N. Zadeh's `ocean_grid_gnerator.py` tool to create the horizontal grid.
 # The resolution is specificed as an "inverse resolution" specified with the
-# `-r` flag. The 0.25-degree (1/4) is specified as `-r 4`. The displaced
-# pole is specified through the `--r_dp` flag. The "south_cutoff_flag" specifies
-# the southern extent of the grid. This value is chosen to reproduce OM4. In
-# this workflow, the southern extent is specified up front compared to OM4
-# where the grid was subset using NCO commands towards the end of the
-# preprocessing workflow.
+# `-r` flag. The 0.25-degree (1/4) is specified as `-r 4`.
 
 ocean_hgrid.nc:
 	ocean_grid_generator.py \
@@ -80,8 +65,9 @@ OCEAN_TOPOG_TOOL = create_topog_refinedSampling.py
 
 # The source topography for OM5 is GEBCO 2020, which incorporates IBCAO and
 # BEDMACHINE updates that were processed separately in OM4. This command
-# below specifies the source location for the GEBCO 202 data and the variable
+# below specifies the source location for the GEBCO 2020 data and the variable
 # names contained within the file.
+
 OCEAN_TOPOG_SRC = --source_file $(GOLD_DIR)/topography/GEBCO_2020/GEBCO_2020.nc \
                   --source_lon lon \
                   --source_lat lat \
@@ -129,7 +115,8 @@ ocean_topog_edited.nc: ocean_topog_merged.nc
 	
 	# Shift OM4 topog edits by 40 points; all edits were done on a 
 	# larger grid and last step of the OM4 preprocessing chain was to 
-	# drop the first 40 rows
+	# drop the first 40 rows. The 120 value below deontes where on the
+	# OM4 nj=1080 grid that this new grid diverges from the existing one.
 	$(PYTHON3) $(TOOLDIR)/auxillary/adjust_topo_edit_jindex.py \
         adjusted_om4_edits.nc 41 120
 	
