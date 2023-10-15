@@ -124,7 +124,8 @@ USER $UNPRIV_USER
 
 # Create a new conda environment with Python 3.11 and the necessary packages
 #RUN conda config --add channels conda-forge
-RUN mamba create -y -n py311 python=3.11 numpy matplotlib cartopy netcdf4 pytest scipy xarray dask numba tqdm xesmf xgcm seawater
+#RUN mamba create -y -n py311 python=3.11 numpy=1.17.3 scipy=1.3.1 matplotlib cartopy netcdf4=1.4.2 pytest xarray dask numba=0.50.1 tqdm xesmf xgcm seawater
+RUN mamba create -y -n py311 python=3.11 numpy scipy matplotlib cartopy netcdf4 pytest xarray dask numba tqdm xesmf xgcm seawater
 
 #RUN mamba create -y --prefix /pad/$UNPRIV_USER/py311 python=3.11 numpy matplotlib cartopy netcdf4 pytest scipy xarray dask numba tqdm xesmf xgcm seawater
 
@@ -148,6 +149,7 @@ RUN mamba create -y -n py311 python=3.11 numpy matplotlib cartopy netcdf4 pytest
 #RUN mamba create -y -n py27 python=2.7 numpy basemap blas cftime geos glib gstreamer hdf4 hdf5 intel-openmp matplotlib netcdf4 proj4 pyproj scipy gsw
 RUN mamba create -y -n py27 python=2.7 numpy basemap blas cftime geos glib gstreamer hdf4 hdf5 matplotlib netcdf4 proj4 pyproj scipy gsw
 
+RUN mamba create -y -n py37 python=3.7 numpy=1.17.3 scipy=1.3.1 netcdf4=1.4.2 numba=0.50.1
 
 # Stage 2: Build the FRE NCtools
 #----------------------------------------------
