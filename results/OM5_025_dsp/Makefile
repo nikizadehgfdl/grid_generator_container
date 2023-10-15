@@ -1,8 +1,8 @@
 # OM5 Horizontal Grid, Topography, and Preprocessing Datasets
 # GFDL Ocean Division - October 2023
 #
-# Makefile for OM5 (Rotated Pole)
-# -------------------------------
+# Makefile for OM5 (Displaced South Pole)
+# ---------------------------------------
 #
 # The initial horizontal grid for OM5 is nearly identical to the grid
 # used in OM4 (Adcroft et al. 2019). The i,j array sizes are the same
@@ -13,7 +13,7 @@
 # (N. Zadeh, pers. comm.) whose results differ across machines/platforms.
 # Compared to OM4, bugfixes introduce some differences in the other grid
 # metrics (dx, dy, and cell area) that are considered superior to OM4.
-
+#
 # This Makefile is broken into the following sections
 #
 #     Part 1: Horizontal Grid
@@ -27,9 +27,12 @@
 #     Part 3: FMS Grid Spec, Mosaic Files, and Mask Tables
 #
 # Example Usage:
-#    make -f Makefile_OM5_rp grid_spec.nc
-#    make -f Makefile_OM5_rp mask_tables
-
+#    make ocean_hgrid.nc
+#    make ocean_topog.nc
+#    make grid_spec.nc
+#    make mask_tables
+#
+# ---------------------------------------
 
 # Include additional makefile(s) defining input datasets
 include *.mk
@@ -81,10 +84,16 @@ OCEAN_TOPOG_TOOL = create_topog_refinedSampling.py
 # BEDMACHINE updates that were processed separately in OM4. This command
 # below specifies the source location for the GEBCO 202 data and the variable
 # names contained within the file.
+
 OCEAN_TOPOG_SRC = --source_file $(GOLD_DIR)/topography/GEBCO_2020/GEBCO_2020.nc \
                   --source_lon lon \
                   --source_lat lat \
                   --source_elv elevation 
+
+# Options for `--max_refine` and `--nxblocks` recommended by Niki for
+# perfromance and reproducilibity. Without a limit on `max_refine`, memory
+# limits may be reached leading to either the script crashing or not
+# reproducing.
 
 # Bipolar Cap
 ocean_topog_BP.nc: 
@@ -104,7 +113,7 @@ ocean_topog_SO.nc:
         --max_refine=5 --nxblocks=4 \
         --outputfilename $(@F) $(OCEAN_TOPOG_SRC)
 
-# Southern Cap
+# Southern Cap (note: nxblocks is set to 1)
 ocean_topog_SC.nc: 
 	$(OCEAN_TOPOG_TOOL) --hgridfilename ./ocean_hgrid.ncSC.nc \
         --max_refine=5 --nxblocks=1 \
