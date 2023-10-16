@@ -24,6 +24,8 @@ singularity shell --writable -B /archive/gold:/archive/gold grid_generator
 
 Generate the `grid_spec.nc` file, which will include the horizontal grid and topography:
 ```
+source activate /pad/griduser/.conda/envs/py311/
+cd /results/OM5_025_dsp
 make grid_spec.nc
 ```
 
