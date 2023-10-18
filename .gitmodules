@@ -22,3 +22,6 @@
 [submodule "regrid_runoff"]
 	path = regrid_runoff
 	url = https://github.com/adcroft/regrid_runoff.git
+[submodule "MOM6-examples"]
+	path = MOM6-examples
+	url = https://github.com/jkrasting/MOM6-examples
