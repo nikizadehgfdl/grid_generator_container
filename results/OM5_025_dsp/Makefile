@@ -34,24 +34,21 @@
 #
 # ---------------------------------------
 
-# Include additional makefile(s) defining input datasets
-include *.mk
-
-
 # COMMON PATHS & SETTINGS
 # -----------------------
 
 # This Makefile relies on two different versions of Python. The updated
 # new tools rely on Python 3 while the legacy OM4 tools rely on Python 2.
-PYTHON2 = /pad/griduser/.conda/envs/py27/bin/python
-PYTHON3 = /pad/griduser/.conda/envs/py311/bin/python
+PYTHON2 := /pad/griduser/.conda/envs/py27/bin/python
+PYTHON3 := /pad/griduser/.conda/envs/py311/bin/python
+PYTHON37 := /pad/griduser/.conda/envs/py37/bin/python
 
 # GFDL O-division has a central repository for common datasets
-GOLD_DIR = /archive/gold/datasets
+GOLD_DIR := /archive/gold/datasets
 
 # Directories inside the container with tools
-TOOLDIR = /opt/tools
-FRE_NCTOOLS = /opt/fre-nctools/bin
+TOOLDIR := /opt/tools
+FRE_NCTOOLS := /opt/fre-nctools/bin
 
 
 # Part 1: Horizontal Grid
@@ -229,5 +226,9 @@ mask_tables: $(FRE_NCTOOLS)/check_mask ocean_mosaic.nc ocean_topog.nc
 	$(FRE_NCTOOLS)/check_mask --grid_file ocean_mosaic.nc --ocean_topog ocean_topog.nc --layout 32,72
 	$(FRE_NCTOOLS)/check_mask --grid_file ocean_mosaic.nc --ocean_topog ocean_topog.nc --layout 45,72
 	touch $@
+
+
+# Include additional makefile(s) defining input datasets
+include *.mk
 
 

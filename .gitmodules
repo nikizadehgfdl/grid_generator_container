@@ -1,0 +1,27 @@
+[submodule "numpypi"]
+	path = numpypi
+	url = https://github.com/underwoo/numpypi
+[submodule "ocean_model_grid_generator"]
+	path = ocean_model_grid_generator
+	url = https://github.com/nikizadehgfdl/ocean_model_grid_generator
+[submodule "ocean_model_topog_generator"]
+	path = ocean_model_topog_generator
+	url = https://github.com/nikizadehgfdl/ocean_model_topog_generator
+[submodule "sloppy"]
+	path = sloppy
+	url = https://github.com/raphaeldussin/sloppy
+[submodule "convert_Davies_2013"]
+	path = convert_Davies_2013
+	url = https://github.com/adcroft/convert_Davies_2013
+[submodule "OM4_05_preprocessing_geothermal"]
+	path = OM4_05_preprocessing_geothermal
+	url = https://github.com/adcroft/OM4_05_preprocessing_geothermal
+[submodule "interp_and_fill"]
+	path = interp_and_fill
+	url = https://github.com/adcroft/interp_and_fill
+[submodule "regrid_runoff"]
+	path = regrid_runoff
+	url = https://github.com/adcroft/regrid_runoff.git
+[submodule "MOM6-examples"]
+	path = MOM6-examples
+	url = https://github.com/jkrasting/MOM6-examples
