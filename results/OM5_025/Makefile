@@ -63,12 +63,12 @@ ocean_hgrid.nc:
 
 OCEAN_TOPOG_TOOL = create_topog_refinedSampling.py
 
-# The source topography for OM5 is GEBCO 2020, which incorporates IBCAO and
+# The source topography for OM5 is GEBCO 2023, which incorporates IBCAO and
 # BEDMACHINE updates that were processed separately in OM4. This command
-# below specifies the source location for the GEBCO 2020 data and the variable
+# below specifies the source location for the GEBCO 2023 data and the variable
 # names contained within the file.
 
-OCEAN_TOPOG_SRC = --source_file $(GOLD_DIR)/topography/GEBCO_2020/GEBCO_2020.nc \
+OCEAN_TOPOG_SRC = --source_file $(GOLD_DIR)/topography/GEBCO_2023/GEBCO_2023.nc \
                   --source_lon lon \
                   --source_lat lat \
                   --source_elv elevation 
