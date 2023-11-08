@@ -34,3 +34,8 @@ geothermal_davies2013_v1.nc:
 	$(PYTHON3) $(TOOLDIR)/OM4_05_preprocessing_geothermal/regrid_geothermal.py
 	rm -f convert_Davies_2013
 
+INPUT: seawifs-clim-1997-2010.nc tidal_amplitude.nc geothermal_davies2013_v1.nc
+	mkdir -p INPUT
+	mv -v seawifs-clim-1997-2010.nc INPUT/.
+	mv -v tidal_amplitude.nc INPUT/.
+	mv -v geothermal_davies2013_v1.nc INPUT/.
