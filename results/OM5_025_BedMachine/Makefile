@@ -98,6 +98,17 @@ ocean_topog_merged.nc: ocean_topog_MERC.nc ocean_topog_SO.nc ocean_topog_BP.nc
         --outputfilename $(@F)
 
 
+# Part 2a1: BedMachine Merge
+# --------------------------
+
+# Remap Original BedMachine to the new grid (j60s = 562)
+remapped_bedmachine.nc: ocean_hgrid.ncSO.nc
+	$(PYTHON3) $(TOOLDIR)/auxillary/remap_bedmachine.py \
+            ocean_hgrid.nc \
+            562 \
+            BedMachineAntarctica_2020-07-15_v02.nc \
+            $(@F)
+
 # Part 2b: Topgraphy Edits
 # ------------------------
 
