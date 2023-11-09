@@ -27,7 +27,7 @@ def proj_xy(lon, lat, PROJSTRING):
     return xx, yy
 
 
-def main(hgrid, src, dest):
+def main(hgrid, j60s, src, dest):
     PROJSTRING = "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs"
 
     # ---------------- bedmachine + reduction
@@ -37,7 +37,6 @@ def main(hgrid, src, dest):
 
     # ----------------- read lon/lat MOM6 grid corners until 60S
     hgrid = xr.open_dataset(hgrid)
-    j60s = 562
 
     lon_model = hgrid["x"][0:j60s:2, 0::2]
     lat_model = hgrid["y"][0:j60s:2, 0::2]
@@ -71,5 +70,10 @@ if __name__ == "__main__":
     print("Running BedMachine Remapping")
     # original source: /net2/rnd/BedMachineAntarctica_2020-07-15_v02.nc
     # hgrid can be the South Pole subgrid: i.e. ocean_hgridSP_025deg
+    # j60s = 562 (index)
     hgrid = sys.argv[1]
-    src = sys.argv[2]
+    j60s = int(sys.argv[2])
+    src = sys.argv[3]
+    dest = sys.argv[4]
+    main(hgrid, j60s, src, dest)
+
