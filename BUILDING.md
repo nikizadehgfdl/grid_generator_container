@@ -12,6 +12,6 @@ docker save -o grid_generator.tar grid_generator:latest
 
 Uploading container to DockerHub:
 ```
-docker tag grid_generator:latest username/grid_generator:vYYYYMMDD
-docker tag grid_generator:latest username/grid_generator:latest
+docker tag grid_generator:latest $USER/grid_generator:vYYYYMMDD
+docker tag grid_generator:latest $USER/grid_generator:latest
 ```

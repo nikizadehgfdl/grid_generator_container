@@ -104,7 +104,7 @@ RUN chgrp $UNPRIV_USER $TOOLDIR
 # Switch to non-privileged user
 USER $UNPRIV_USER
 
-RUN cd $TOOLDIR && git clone --recursive https://github.com/jkrasting/grid_generator_container.git tools && cd tools && git checkout submodules && git submodule update --recursive
+RUN cd $TOOLDIR && git clone --recursive https://github.com/jkrasting/grid_generator_container.git tools && cd tools && git submodule update --recursive
 
 
 # Stage 4: Install Python packages in developer mode

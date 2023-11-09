@@ -21,12 +21,13 @@ sos_climatology_WOA13v2_provided_by_JRA55-do_v1_4.nc:
 	ncatted -h -O -a modulo,time,c,c,' ' $(@F)
 	ncatted -h -O -a calendar_type,time,c,c,'julian' $(@F)
 
-salt_restore_JRA.nc: sos_climatology_WOA13v2_provided_by_JRA55-do_v1_4.nc
+INPUT/salt_restore_JRA.nc: sos_climatology_WOA13v2_provided_by_JRA55-do_v1_4.nc
 	$(TOOLDIR)/interp_and_fill/interp_and_fill.py \
         ocean_hgrid.nc \
         ocean_mask.nc \
 	sos_climatology_WOA13v2_provided_by_JRA55-do_v1_4.nc \
-        sos --fms --closest $(@F)
+        sos --fms --closest salt_restore_JRA.nc
+	mv -v salt_restore_JRA.nc INPUT/.
 
 
 # JRA Runoff Files
@@ -55,12 +56,12 @@ $(OUT_DIR):
 
 # Rule to process river files
 $(OUT_DIR)/friver%.compressed.nc: $(SRC_DIR)/friver%.nc | $(OUT_DIR)
-	$(PYTHON37) $(TOOLDIR)/OM4_025_runoff_JRA/regrid_runoff/regrid_runoff.py \
+	$(PYTHON37) $(TOOLDIR)/regrid_runoff/regrid_runoff.py \
 	-p --fast_pickle ocean_hgrid.nc ocean_mask.nc $< --runoff_var friver --fms --compress $@
 
 # Rule to process licalvf files
 $(OUT_DIR)/licalvf%.compressed.nc: $(SRC_DIR)/licalvf%.nc | $(OUT_DIR)
-	$(PYTHON37) $(TOOLDIR)/OM4_025_runoff_JRA/regrid_runoff/regrid_runoff.py \
+	$(PYTHON37) $(TOOLDIR)/regrid_runoff/regrid_runoff.py \
 	-p --fast_pickle ocean_hgrid.nc ocean_mask.nc $< --runoff_var licalvf --fms --compress $@
 
 # If the pickle file doesn't exist, the first file to be processed will create it
