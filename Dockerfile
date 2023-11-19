@@ -166,8 +166,11 @@ RUN echo "export TERM=xterm" > /pad/$UNPRIV_USER/.bashrc
 RUN echo "source activate py311" >> /pad/$UNPRIV_USER/.bashrc
 RUN echo "echo 'OM5 Preprocessing Container'" >> /pad/$UNPRIV_USER/.bashrc
 
-# Make mount point for GOLD datasets (GFDL-specific)
-RUN mkdir -p /archive/gold
+# Make mount points for GFDL-specific dataset locations
+RUN mkdir -p /archive/gold \
+    && mkdir -p /archive/cm6 \
+    && mkdir -p /archive/pcm \
+    && mkdir -p /archive/kap
 
 # Make results directory
 RUN cp -r /opt/tools/results /results
