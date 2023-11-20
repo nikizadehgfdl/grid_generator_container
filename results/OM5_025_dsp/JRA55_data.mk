@@ -21,7 +21,7 @@ sos_climatology_WOA13v2_provided_by_JRA55-do_v1_4.nc:
 	ncatted -h -O -a modulo,time,c,c,' ' $(@F)
 	ncatted -h -O -a calendar_type,time,c,c,'julian' $(@F)
 
-INPUT/salt_restore_JRA.nc: sos_climatology_WOA13v2_provided_by_JRA55-do_v1_4.nc
+INPUT/salt_restore_JRA.nc: grid_spec.nc sos_climatology_WOA13v2_provided_by_JRA55-do_v1_4.nc
 	$(TOOLDIR)/interp_and_fill/interp_and_fill.py \
         ocean_hgrid.nc \
         ocean_mask.nc \
@@ -55,12 +55,12 @@ $(OUT_DIR):
 	mkdir -p $(OUT_DIR)
 
 # Rule to process river files
-$(OUT_DIR)/friver%.compressed.nc: $(SRC_DIR)/friver%.nc | $(OUT_DIR)
+$(OUT_DIR)/friver%.compressed.nc: $(SRC_DIR)/friver%.nc grid_spec.nc | $(OUT_DIR)
 	$(PYTHON37) $(TOOLDIR)/regrid_runoff/regrid_runoff.py \
 	-p --fast_pickle ocean_hgrid.nc ocean_mask.nc $< --runoff_var friver --fms --compress $@
 
 # Rule to process licalvf files
-$(OUT_DIR)/licalvf%.compressed.nc: $(SRC_DIR)/licalvf%.nc | $(OUT_DIR)
+$(OUT_DIR)/licalvf%.compressed.nc: $(SRC_DIR)/licalvf%.nc grid_spec.nc | $(OUT_DIR)
 	$(PYTHON37) $(TOOLDIR)/regrid_runoff/regrid_runoff.py \
 	-p --fast_pickle ocean_hgrid.nc ocean_mask.nc $< --runoff_var licalvf --fms --compress $@
 
