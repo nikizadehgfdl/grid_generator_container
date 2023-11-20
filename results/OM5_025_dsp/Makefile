@@ -231,4 +231,4 @@ mask_tables: $(FRE_NCTOOLS)/check_mask ocean_mosaic.nc ocean_topog.nc
 # Include additional makefile(s) defining input datasets
 include *.mk
 
-
+all: grid_spec.nc INPUT INPUT/salt_restore_JRA.nc JRA_runoff_data
