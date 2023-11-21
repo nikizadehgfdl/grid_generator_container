@@ -1,18 +1,8 @@
 # OM5 Horizontal Grid, Topography, and Preprocessing Datasets
 # GFDL Ocean Division - October 2023
 #
-# Makefile for OM5 (Displaced South Pole)
-# ---------------------------------------
-#
-# The initial horizontal grid for OM5 is nearly identical to the grid
-# used in OM4 (Adcroft et al. 2019). The i,j array sizes are the same
-# between the models, and the geographical locations of the cell centers
-# are highly similar. For most locations, the differences are within
-# machine precision, with more significant differences over the Southern
-# Cap where the grid generation relies on trigonometric functions
-# (N. Zadeh, pers. comm.) whose results differ across machines/platforms.
-# Compared to OM4, bugfixes introduce some differences in the other grid
-# metrics (dx, dy, and cell area) that are considered superior to OM4.
+# Makefile for OM5 (Standard South Pole)
+# -------------------------------
 #
 # This Makefile is broken into the following sections
 #
@@ -27,10 +17,8 @@
 #     Part 3: FMS Grid Spec, Mosaic Files, and Mask Tables
 #
 # Example Usage:
-#    make ocean_hgrid.nc
-#    make ocean_topog.nc
-#    make grid_spec.nc
-#    make mask_tables
+#    make -f Makefile_OM5_rp grid_spec.nc
+#    make -f Makefile_OM5_rp mask_tables
 #
 # ---------------------------------------
 
@@ -56,21 +44,17 @@ FRE_NCTOOLS := /opt/fre-nctools/bin
 
 # Use N. Zadeh's `ocean_grid_gnerator.py` tool to create the horizontal grid.
 # The resolution is specificed as an "inverse resolution" specified with the
-# `-r` flag. The 0.25-degree (1/4) is specified as `-r 4`. The displaced
-# pole is specified through the `--r_dp` flag. The "south_cutoff_flag" specifies
-# the southern extent of the grid. This value is chosen to reproduce OM4. In
-# this workflow, the southern extent is specified up front compared to OM4
-# where the grid was subset using NCO commands towards the end of the
-# preprocessing workflow.
- 
+# `-r` flag. The 0.25-degree (1/4) is specified as `-r 4`.
+
 ocean_hgrid.nc:
 	ocean_grid_generator.py \
             --write_subgrid_files \
             -f $(@F) \
             -r 4 \
-            --r_dp 0.2 \
-            --south_cutoff_row 83
-
+            --south_ocean_lower_lat -88.57 \
+            --no_south_cap \
+            --match_dy so
+ 
 
 # Part 2a: Interpolared Topography with Subgrid Tiles
 # ---------------------------------------------------
@@ -86,11 +70,6 @@ OCEAN_TOPOG_SRC = --source_file $(GOLD_DIR)/topography/GEBCO_2023/GEBCO_2023.nc 
                   --source_lon lon \
                   --source_lat lat \
                   --source_elv elevation 
-
-# Options for `--max_refine` and `--nxblocks` recommended by Niki for
-# perfromance and reproducilibity. Without a limit on `max_refine`, memory
-# limits may be reached leading to either the script crashing or not
-# reproducing.
 
 # Bipolar Cap
 ocean_topog_BP.nc: 
@@ -110,19 +89,23 @@ ocean_topog_SO.nc:
         --max_refine=5 --nxblocks=4 \
         --outputfilename $(@F) $(OCEAN_TOPOG_SRC)
 
-# Southern Cap (note: nxblocks is set to 1)
-ocean_topog_SC.nc: 
-	$(OCEAN_TOPOG_TOOL) --hgridfilename ./ocean_hgrid.ncSC.nc \
-        --max_refine=5 --nxblocks=1 \
-        --outputfilename $(@F) $(OCEAN_TOPOG_SRC)
-
 # Merge all tiles together
-ocean_topog_merged.nc: ocean_topog_MERC.nc ocean_topog_SO.nc \
-                       ocean_topog_BP.nc ocean_topog_SC.nc
+ocean_topog_merged.nc: ocean_topog_MERC.nc ocean_topog_SO.nc ocean_topog_BP.nc
 	merge_topog_tiles.py \
-        --tilefiles ocean_topog_SC.nc,ocean_topog_SO.nc,ocean_topog_MERC.nc,ocean_topog_BP.nc \
+        --tilefiles ocean_topog_SO.nc,ocean_topog_MERC.nc,ocean_topog_BP.nc \
         --outputfilename $(@F)
 
+
+# Part 2a1: BedMachine Merge
+# --------------------------
+
+# Remap Original BedMachine to the new grid (j60s = 562)
+remapped_bedmachine.nc: ocean_hgrid.ncSO.nc
+	$(PYTHON3) $(TOOLDIR)/auxillary/remap_bedmachine.py \
+            ocean_hgrid.nc \
+            562 \
+            BedMachineAntarctica_2020-07-15_v02.nc \
+            $(@F)
 
 # Part 2b: Topgraphy Edits
 # ------------------------
@@ -141,9 +124,10 @@ ocean_topog_edited.nc: ocean_topog_merged.nc
 	
 	# Shift OM4 topog edits by 40 points; all edits were done on a 
 	# larger grid and last step of the OM4 preprocessing chain was to 
-	# drop the first 40 rows
+	# drop the first 40 rows. The 120 value below deontes where on the
+	# OM4 nj=1080 grid that this new grid diverges from the existing one.
 	$(PYTHON3) $(TOOLDIR)/auxillary/adjust_topo_edit_jindex.py \
-        adjusted_om4_edits.nc -40
+        adjusted_om4_edits.nc 41 120
 	
 	# The OM4 convention had a flipped sign convention
 	cp ocean_topog_merged.nc tmp.nc 
@@ -227,8 +211,6 @@ mask_tables: $(FRE_NCTOOLS)/check_mask ocean_mosaic.nc ocean_topog.nc
 	$(FRE_NCTOOLS)/check_mask --grid_file ocean_mosaic.nc --ocean_topog ocean_topog.nc --layout 45,72
 	touch $@
 
-check:
-	md5sum -c hash.md5
 
 # Include additional makefile(s) defining input datasets
 include *.mk

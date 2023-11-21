@@ -19,26 +19,24 @@
 # Example Usage:
 #    make -f Makefile_OM5_rp grid_spec.nc
 #    make -f Makefile_OM5_rp mask_tables
-
-
-# Include additional makefile(s) defining input datasets
-include *.mk
-
+#
+# ---------------------------------------
 
 # COMMON PATHS & SETTINGS
 # -----------------------
 
 # This Makefile relies on two different versions of Python. The updated
 # new tools rely on Python 3 while the legacy OM4 tools rely on Python 2.
-PYTHON2 = /pad/griduser/.conda/envs/py27/bin/python
-PYTHON3 = /pad/griduser/.conda/envs/py311/bin/python
+PYTHON2 := /pad/griduser/.conda/envs/py27/bin/python
+PYTHON3 := /pad/griduser/.conda/envs/py311/bin/python
+PYTHON37 := /pad/griduser/.conda/envs/py37/bin/python
 
 # GFDL O-division has a central repository for common datasets
-GOLD_DIR = /archive/gold/datasets
+GOLD_DIR := /archive/gold/datasets
 
 # Directories inside the container with tools
-TOOLDIR = /opt/tools
-FRE_NCTOOLS = /opt/fre-nctools/bin
+TOOLDIR := /opt/tools
+FRE_NCTOOLS := /opt/fre-nctools/bin
 
 
 # Part 1: Horizontal Grid
@@ -63,12 +61,12 @@ ocean_hgrid.nc:
 
 OCEAN_TOPOG_TOOL = create_topog_refinedSampling.py
 
-# The source topography for OM5 is GEBCO 2020, which incorporates IBCAO and
+# The source topography for OM5 is GEBCO 2023, which incorporates IBCAO and
 # BEDMACHINE updates that were processed separately in OM4. This command
-# below specifies the source location for the GEBCO 2020 data and the variable
+# below specifies the source location for the GEBCO 2023 data and the variable
 # names contained within the file.
 
-OCEAN_TOPOG_SRC = --source_file $(GOLD_DIR)/topography/GEBCO_2020/GEBCO_2020.nc \
+OCEAN_TOPOG_SRC = --source_file $(GOLD_DIR)/topography/GEBCO_2023/GEBCO_2023.nc \
                   --source_lon lon \
                   --source_lat lat \
                   --source_elv elevation 
@@ -205,3 +203,7 @@ mask_tables: $(FRE_NCTOOLS)/check_mask ocean_mosaic.nc ocean_topog.nc
 check:
 	md5sum -c hash.md5
 
+# Include additional makefile(s) defining input datasets
+include *.mk
+
+all: grid_spec.nc INPUT INPUT/salt_restore_JRA.nc JRA_runoff_data
